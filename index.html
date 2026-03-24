@@ -1805,7 +1805,7 @@ function renderObjTable(type,q=''){
   if(type==='client'){
     tbody.innerHTML=rows.map(r=>`<tr class="client-row" data-client-id="${r.id}" style="cursor:pointer;">
       <td style="font-weight:500;text-decoration:underline;text-underline-offset:3px;">${r.first||''} ${r.last||''}</td><td>${r.email||'—'}</td><td>${r.phone||'—'}</td>
-      <td style="color:var(--muted);font-size:12.5px;">${r.notes?r.notes.substring(0,60)+(r.notes.length>60?'…',''):'—'}</td>
+      <td style="color:var(--muted);font-size:12.5px;">${r.notes?r.notes.substring(0,60)+(r.notes.length>60?'…':''):'—'}</td>
       <td class="no-nav"><button class="btn btn-ghost btn-xs" onclick="openObjModal('client',false,'${r.id}')">Edit</button>
       <button class="btn btn-danger btn-xs" onclick="deleteObj('client','${r.id}')">Del</button></td></tr>`).join('');
     // Use event delegation to handle row clicks
