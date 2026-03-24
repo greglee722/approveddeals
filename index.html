@@ -488,9 +488,41 @@ th.sortable:hover { color:var(--text); }
         <div><div class="page-title">Dashboard</div><div class="page-subtitle">All approved deals</div></div>
         <div style="display:flex;gap:10px;">
           <button class="btn btn-ghost" onclick="exportCSV()"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
+          <button class="btn btn-ghost" onclick="openAIDealModal()" style="display:inline-flex;align-items:center;gap:7px;">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/><circle cx="18" cy="6" r="3" fill="currentColor" stroke="none"/></svg>
+            AI Fill
+          </button>
           <button class="btn btn-primary" onclick="openDealModal()">+ New Deal</button>
         </div>
       </div>
+      <!-- AI DEAL CREATOR -->
+      <div id="ai-deal-box" style="background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:24px;box-shadow:var(--shadow);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+          <div style="background:#000;border-radius:8px;padding:6px 8px;display:flex;align-items:center;justify-content:center;">
+            <svg width="14" height="14" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/><circle cx="18" cy="5" r="3" fill="#fff" stroke="none"/></svg>
+          </div>
+          <div>
+            <div style="font-family:var(--font-head);font-size:14px;color:#000;">AI Deal Creator</div>
+            <div style="font-size:11.5px;color:var(--muted);">Describe a deal in plain English — AI will fill out the form</div>
+          </div>
+          <button onclick="toggleAIBox()" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;line-height:1;" title="Collapse">−</button>
+        </div>
+        <div id="ai-input-area">
+          <textarea id="ai-deal-input" placeholder='e.g. "Deal at 123 Main St, Boston MA 02116. Client is Greg Lee, greg@gmail.com. FMR/LMR/Sec Dep is $5,000 each, broker fee $5,000. LMR and sec dep payable to landlord. Lease starts Sept 1 2026."' style="width:100%;min-height:80px;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-family:var(--font-body);font-size:13px;background:var(--bg);resize:vertical;outline:none;transition:border-color 0.15s;" onfocus="this.style.borderColor='#000'" onblur="this.style.borderColor='var(--border)'"></textarea>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
+            <div style="flex:1;">
+              <input id="ai-api-key" type="password" placeholder="Anthropic API key (sk-ant-...)" style="width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:12.5px;background:var(--bg);outline:none;" onfocus="this.style.borderColor='#000'" onblur="this.style.borderColor='var(--border)'">
+              <div style="font-size:11px;color:var(--muted);margin-top:3px;">Key saved in your browser. Get one free at <a href="https://console.anthropic.com" target="_blank" style="color:#000;">console.anthropic.com</a></div>
+            </div>
+            <button class="btn btn-primary" onclick="runAIDeal()" id="ai-run-btn" style="white-space:nowrap;height:38px;">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              Create Deal
+            </button>
+          </div>
+          <div id="ai-status" style="display:none;margin-top:8px;font-size:12.5px;padding:8px 12px;border-radius:7px;"></div>
+        </div>
+      </div>
+
       <div class="stats-row">
         <div class="stat-card clickable" id="stat-active-card" onclick="toggleStatFilter('active')"><div class="stat-label">Active Deals</div><div class="stat-val" id="stat-active">0</div><div class="stat-sub">saved &amp; approved</div></div>
         <div class="stat-card clickable" id="stat-drafts-card" onclick="toggleStatFilter('draft')"><div class="stat-label">Drafts</div><div class="stat-val" id="stat-drafts">0</div><div class="stat-sub">in progress</div></div>
@@ -824,6 +856,48 @@ th.sortable:hover { color:var(--text); }
 </div>
 
 
+
+
+<!-- AI DEAL MODAL -->
+<div class="mini-overlay" id="ai-deal-overlay">
+  <div class="mini-modal" style="width:620px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+      <div class="mini-title" style="margin-bottom:0;display:flex;align-items:center;gap:10px;">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        AI Deal Builder
+      </div>
+      <button class="modal-close" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);" onclick="closeAIDealModal()">×</button>
+    </div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">Describe the deal in plain English — AI will fill in the deal form for you to review before saving.</p>
+
+    <!-- API Key setup -->
+    <div id="ai-key-section" style="margin-bottom:14px;padding:12px 14px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:6px;">Anthropic API Key</div>
+      <div style="display:flex;gap:8px;">
+        <input type="password" id="ai-api-key" placeholder="sk-ant-..." style="flex:1;padding:8px 11px;border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;background:var(--bg);">
+        <button class="btn btn-ghost btn-sm" onclick="saveAIKey()">Save</button>
+      </div>
+      <div style="font-size:11.5px;color:var(--muted);margin-top:6px;">Get your key at <a href="https://console.anthropic.com" target="_blank" style="color:#000;">console.anthropic.com</a> — saved locally, never sent anywhere except Anthropic.</div>
+    </div>
+
+    <div class="form-group" style="margin-bottom:12px;">
+      <label>Describe the deal</label>
+      <textarea id="ai-deal-input" style="min-height:120px;" placeholder="e.g. Deal at 123 Main St Boston MA. Client is Greg Lee, greg@gmail.com. FMR/LMR/Sec Dep $5000 each, broker fee $5000. LMR and sec dep payable to landlord. Lease starts Sept 1 2026."></textarea>
+    </div>
+    <div id="ai-error" style="display:none;background:#fdf0ef;color:#c0392b;border:1px solid #f5c6c2;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:12px;"></div>
+    <div id="ai-loading" style="display:none;text-align:center;padding:16px;color:var(--muted);font-size:13px;">
+      <div class="loading-spinner" style="margin:0 auto 10px;width:24px;height:24px;border-width:2px;"></div>
+      Extracting deal information…
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeAIDealModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="runAIDeal()" style="display:inline-flex;align-items:center;gap:7px;">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Fill Deal Form
+      </button>
+    </div>
+  </div>
+</div>
 
 <div id="filter-panel-overlay" onclick="closeFilterPanel()"></div>
 <div id="filter-panel">
@@ -2628,6 +2702,421 @@ function renderRequestsTable() {
       <td style="white-space:nowrap;">${actions}</td>
     </tr>`;
   }).join('');
+}
+
+
+// ══════════════════════════════════════
+// AI DEAL CREATOR
+// ══════════════════════════════════════
+function toggleAIBox() {
+  const area = document.getElementById('ai-input-area');
+  const btn  = document.querySelector('[onclick="toggleAIBox()"]');
+  const hidden = area.style.display === 'none';
+  area.style.display = hidden ? '' : 'none';
+  btn.textContent = hidden ? '−' : '+';
+}
+
+window.addEventListener('load', () => {
+  const saved = localStorage.getItem('crm_anthropic_key');
+  if (saved) document.getElementById('ai-api-key').value = saved;
+});
+
+async function runAIDeal() {
+  const text = document.getElementById('ai-deal-input').value.trim();
+  if (!text) { showAIStatus('Please describe the deal first.', 'error'); return; }
+
+  let apiKey = document.getElementById('ai-api-key').value.trim();
+  if (!apiKey) { showAIStatus('Please enter your Anthropic API key.', 'error'); return; }
+  localStorage.setItem('crm_anthropic_key', apiKey);
+
+  const btn = document.getElementById('ai-run-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="animation:spin 0.8s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Thinking…';
+  showAIStatus('Sending to Claude…', 'loading');
+
+  // Build address/client/landlord/agent lists for context
+  const addresses = db.addresses.map(a => `${a.id}: ${addrDisplay(a)}`).join('\n');
+  const clients   = db.clients.map(c => `${c.id}: ${c.first} ${c.last} (${c.email||'no email'})`).join('\n');
+  const landlords = db.landlords.map(l => `${l.id}: ${l.name}`).join('\n');
+  const agents    = db.agents.map(a => `${a.id}: ${a.name}`).join('\n');
+
+  const systemPrompt = `You are a real estate CRM assistant. Extract deal information from natural language descriptions and return ONLY a valid JSON object with these exact fields. Do not include any explanation or markdown — just the raw JSON.
+
+Fields to extract:
+- name: deal name (usually the address, e.g. "123 Main St, #2, Boston, MA")
+- leaseStart: YYYY-MM-DD format or ""
+- leaseEnd: YYYY-MM-DD format or ""
+- addressDisplay: full address string
+- addressId: match from existing addresses list below, or ""
+- landlordName: landlord name or ""
+- landlordId: match from existing landlords list below, or ""
+- agentName: agent name or ""
+- agentId: match from existing agents list below, or ""
+- commission: number as string or ""
+- additionalInfo: any notes not captured elsewhere
+- clients: array of {id, name} objects — match from existing clients, or use {id:"", name:"Full Name"} for new
+- appfeeNeeded: number as string or ""
+- fmrNeeded: number as string or ""
+- fmrNotes: notes about FMR or ""
+- brokerNeeded: number as string or ""
+- brokerNotes: notes about broker fee or ""
+- lmrNeeded: number as string or ""
+- lmrNotes: notes about LMR or ""
+- secdepNeeded: number as string or ""
+- secdepNotes: notes about security deposit or ""
+- keyfeeNeeded: number as string or ""
+- keyfeeNotes: notes about key fee or ""
+- ncfNeeded: number (0-10) as string
+- leaseStart: YYYY-MM-DD or ""
+
+Existing data for matching:
+ADDRESSES:
+${addresses || 'none'}
+
+CLIENTS:
+${clients || 'none'}
+
+LANDLORDS:
+${landlords || 'none'}
+
+AGENTS:
+${agents || 'none'}
+
+Return ONLY the JSON object. No markdown, no explanation.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: text }]
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(()=>({}));
+      throw new Error(err.error?.message || 'API error ' + res.status);
+    }
+
+    const data = await res.json();
+    const rawText = data.content?.[0]?.text || '';
+
+    // Parse JSON from response
+    let deal;
+    try {
+      const clean = rawText.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/\s*```$/,'').trim();
+      deal = JSON.parse(clean);
+    } catch(e) {
+      throw new Error('Could not parse AI response. Try rephrasing your description.');
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg> Create Deal';
+    showAIStatus('✓ Deal extracted! Review the form and save.', 'success');
+
+    // Pre-fill and open deal modal
+    openDealModal();
+    setTimeout(() => fillDealModalFromAI(deal), 100);
+
+  } catch(e) {
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg> Create Deal';
+    showAIStatus('Error: ' + e.message, 'error');
+  }
+}
+
+function showAIStatus(msg, type) {
+  const el = document.getElementById('ai-status');
+  el.style.display = 'block';
+  el.textContent = msg;
+  el.style.background = type==='error' ? '#fdf0ef' : type==='success' ? '#f0f8f4' : '#f5f3ef';
+  el.style.color = type==='error' ? '#c0392b' : type==='success' ? '#1a6b3a' : '#6a4800';
+  el.style.border = type==='error' ? '1px solid #f5c6c2' : type==='success' ? '1px solid #b7dfc9' : '1px solid #e8d9b0';
+}
+
+function fillDealModalFromAI(d) {
+  // Basic fields
+  if (d.name) setV('df-name', d.name);
+  if (d.leaseStart) setV('df-lease-start', d.leaseStart);
+  if (d.leaseEnd) setV('df-lease-end', d.leaseEnd);
+  if (d.commission) setV('df-commission', d.commission);
+  if (d.additionalInfo) setV('df-additional-info', d.additionalInfo);
+
+  // Address
+  if (d.addressId) {
+    setV('df-address-id', d.addressId);
+    const addr = db.addresses.find(a=>a.id===d.addressId);
+    if (addr) document.getElementById('dd-address-input').value = addrDisplay(addr);
+  } else if (d.addressDisplay) {
+    document.getElementById('dd-address-input').value = d.addressDisplay;
+  }
+
+  // Landlord
+  if (d.landlordId) {
+    setV('df-landlord-id', d.landlordId);
+    const ll = db.landlords.find(l=>l.id===d.landlordId);
+    if (ll) document.getElementById('dd-landlord-input').value = ll.name;
+  } else if (d.landlordName) {
+    document.getElementById('dd-landlord-input').value = d.landlordName;
+  }
+
+  // Agent
+  if (d.agentId) {
+    setV('df-agent-id', d.agentId);
+    const ag = db.agents.find(a=>a.id===d.agentId);
+    if (ag) document.getElementById('dd-agent-input').value = ag.name;
+  } else if (d.agentName) {
+    document.getElementById('dd-agent-input').value = d.agentName;
+  }
+
+  // Clients
+  if (d.clients && d.clients.length) {
+    selectedClients = d.clients.map(c => {
+      // Try to match existing client
+      const existing = db.clients.find(cl => cl.id === c.id ||
+        `${cl.first} ${cl.last}`.toLowerCase() === (c.name||'').toLowerCase());
+      return existing ? { id: existing.id, name: `${existing.first} ${existing.last}` } : { id: c.id||'new_'+Date.now(), name: c.name||'' };
+    });
+    renderSelectedClients();
+  }
+
+  // Payments
+  const fields = ['appfee','fmr','broker','lmr','secdep','keyfee'];
+  fields.forEach(f => {
+    if (d[f+'Needed'])  setV('df-'+f+'-needed',  d[f+'Needed']);
+    if (d[f+'Notes'])   setV('df-'+f+'-notes',   d[f+'Notes']);
+    if (d[f+'Due'])     setV('df-'+f+'-due',      d[f+'Due']);
+  });
+
+  // NCF
+  if (d.ncfNeeded) setV('df-ncf-needed', d.ncfNeeded);
+
+  // Auto-stage
+  autoStage();
+
+  // Clear AI input
+  document.getElementById('ai-deal-input').value = '';
+}
+
+
+// ══════════════════════════════════════
+// AI DEAL BUILDER
+// ══════════════════════════════════════
+function openAIDealModal() {
+  const saved = localStorage.getItem('ai_api_key');
+  if (saved) {
+    document.getElementById('ai-api-key').value = saved;
+    document.getElementById('ai-key-section').style.display = 'none';
+  } else {
+    document.getElementById('ai-key-section').style.display = '';
+  }
+  document.getElementById('ai-deal-input').value = '';
+  document.getElementById('ai-error').style.display = 'none';
+  document.getElementById('ai-loading').style.display = 'none';
+  document.getElementById('ai-deal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('ai-deal-input').focus(), 100);
+}
+function closeAIDealModal() {
+  document.getElementById('ai-deal-overlay').classList.remove('open');
+}
+function saveAIKey() {
+  const key = document.getElementById('ai-api-key').value.trim();
+  if (!key) return;
+  localStorage.setItem('ai_api_key', key);
+  document.getElementById('ai-key-section').style.display = 'none';
+}
+
+async function runAIDeal() {
+  const apiKey = localStorage.getItem('ai_api_key') || document.getElementById('ai-api-key').value.trim();
+  if (!apiKey) { showAIError('Please enter your Anthropic API key first.'); return; }
+
+  const text = document.getElementById('ai-deal-input').value.trim();
+  if (!text) { showAIError('Please describe the deal first.'); return; }
+
+  document.getElementById('ai-error').style.display = 'none';
+  document.getElementById('ai-loading').style.display = 'block';
+  document.querySelector('#ai-deal-overlay .btn-primary').disabled = true;
+
+  // Build context about existing data
+  const addressList = db.addresses.map(a => `${a.id}: ${addrDisplay(a)}`).join('\n');
+  const landlordList = db.landlords.map(l => `${l.id}: ${l.name}`).join('\n');
+  const agentList = db.agents.map(a => `${a.id}: ${a.name}`).join('\n');
+  const clientList = db.clients.map(c => `${c.id}: ${c.first} ${c.last} (${c.email||'no email'})`).join('\n');
+
+  const systemPrompt = \`You are a real estate CRM assistant. Extract deal information from the user's description and return ONLY valid JSON with these fields. If a field is not mentioned, use "" for strings and "0" for numbers.
+
+Available addresses in system:
+\${addressList || 'None yet'}
+
+Available landlords:
+\${landlordList || 'None yet'}
+
+Available agents:
+\${agentList || 'None yet'}
+
+Available clients:
+\${clientList || 'None yet'}
+
+Return JSON with these exact keys:
+{
+  "name": "deal name (use address as name if not specified)",
+  "addressId": "match to existing address id if found, else ''",
+  "addressDisplay": "full address string",
+  "leaseStart": "YYYY-MM-DD or ''",
+  "leaseEnd": "YYYY-MM-DD or ''",
+  "landlordId": "match existing landlord id if found, else ''",
+  "landlordName": "landlord name or ''",
+  "agentId": "match existing agent id if found, else ''",
+  "agentName": "agent name or ''",
+  "commission": "number as string or ''",
+  "additionalInfo": "any extra notes not captured elsewhere",
+  "newClient": { "first": "", "last": "", "email": "", "phone": "" },
+  "appfeeNeeded": "0", "appfeeNotes": "",
+  "fmrNeeded": "0", "fmrNotes": "",
+  "brokerNeeded": "0", "brokerNotes": "",
+  "lmrNeeded": "0", "lmrNotes": "",
+  "secdepNeeded": "0", "secdepNotes": "",
+  "keyfeeNeeded": "0", "keyfeeNotes": "",
+  "ncfNeeded": "0",
+  "leaseReceived": ""
+}
+
+IMPORTANT: Return ONLY the JSON object, no markdown, no explanation.\`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: text }],
+        system: systemPrompt
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(()=>({}));
+      throw new Error(err.error?.message || 'API error ' + res.status);
+    }
+
+    const data = await res.json();
+    const raw = data.content?.[0]?.text || '';
+    // Strip any markdown fences just in case
+    const clean = raw.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/\s*```$/,'').trim();
+    const deal = JSON.parse(clean);
+
+    document.getElementById('ai-loading').style.display = 'none';
+    document.querySelector('#ai-deal-overlay .btn-primary').disabled = false;
+    closeAIDealModal();
+
+    // Pre-fill the deal modal
+    openDealModal();
+    setTimeout(() => applyAIDeal(deal), 100);
+
+  } catch(e) {
+    document.getElementById('ai-loading').style.display = 'none';
+    document.querySelector('#ai-deal-overlay .btn-primary').disabled = false;
+    showAIError('Error: ' + e.message);
+    console.error(e);
+  }
+}
+
+function showAIError(msg) {
+  const el = document.getElementById('ai-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function applyAIDeal(deal) {
+  // Fill basic fields
+  const sv = (id, val) => { const e = document.getElementById(id); if(e && val) e.value = val; };
+  sv('df-name', deal.name);
+  sv('df-lease-start', deal.leaseStart);
+  sv('df-lease-end', deal.leaseEnd);
+  sv('df-commission', deal.commission);
+  sv('df-additional-info', deal.additionalInfo);
+
+  // Address
+  if (deal.addressId) {
+    document.getElementById('df-address-id').value = deal.addressId;
+    document.getElementById('dd-address-input').value = deal.addressDisplay || '';
+  } else if (deal.addressDisplay) {
+    document.getElementById('dd-address-input').value = deal.addressDisplay;
+    if (!deal.name) document.getElementById('df-name').value = deal.addressDisplay;
+  }
+
+  // Landlord
+  if (deal.landlordId) {
+    document.getElementById('df-landlord-id').value = deal.landlordId;
+    document.getElementById('dd-landlord-input').value = deal.landlordName || '';
+  } else if (deal.landlordName) {
+    document.getElementById('dd-landlord-input').value = deal.landlordName;
+  }
+
+  // Agent
+  if (deal.agentId) {
+    document.getElementById('df-agent-id').value = deal.agentId;
+    document.getElementById('dd-agent-input').value = deal.agentName || '';
+  } else if (deal.agentName) {
+    document.getElementById('dd-agent-input').value = deal.agentName;
+  }
+
+  // Payment fields
+  const payments = ['appfee','fmr','broker','lmr','secdep','keyfee'];
+  payments.forEach(p => {
+    sv('df-'+p+'-needed', deal[p+'Needed']);
+    sv('df-'+p+'-notes', deal[p+'Notes']);
+  });
+  sv('df-ncf-needed', deal.ncfNeeded);
+  sv('df-lease-received', deal.leaseReceived);
+
+  // Handle new client
+  const nc = deal.newClient;
+  if (nc && (nc.first || nc.last || nc.email)) {
+    // Check if client already exists
+    const existing = db.clients.find(c =>
+      (c.email && nc.email && c.email.toLowerCase() === nc.email.toLowerCase()) ||
+      (`${c.first} ${c.last}`.toLowerCase() === `${nc.first} ${nc.last}`.toLowerCase())
+    );
+    if (existing) {
+      if (!selectedClients.find(c=>c.id===existing.id)) {
+        selectedClients.push({ id: existing.id, name: `${existing.first} ${existing.last}` });
+        renderSelectedClients();
+      }
+    } else {
+      // Show a note that client will need to be created
+      const info = document.getElementById('df-additional-info');
+      const clientNote = \`[New client to add: \${nc.first} \${nc.last}\${nc.email?' - '+nc.email:''}]\`;
+      if (info && !info.value.includes(clientNote)) {
+        info.value = (info.value ? info.value + '\n' : '') + clientNote;
+      }
+    }
+  }
+
+  // Trigger auto-stage
+  autoStage();
+
+  // Flash the form to show it's been filled
+  const modal = document.querySelector('.modal-body');
+  if (modal) {
+    modal.style.transition = 'background 0.3s';
+    modal.style.background = '#f0f8f4';
+    setTimeout(() => modal.style.background = '', 600);
+  }
 }
 
 // LEASE SORT
