@@ -440,7 +440,7 @@ th.sortable:hover { color:var(--text); }
   <div class="logo">Approved<span>Deals</span></div>
   <nav class="header-nav">
     <button class="nav-tab active" data-page="dashboard"  onclick="showPage('dashboard',this)">Dashboard</button>
-    <button class="nav-tab alert-tab" data-page="payments" onclick="showPage('payments',this)">Payments Needed</button>
+    <button class="nav-tab alert-tab" data-page="payments" onclick="showPage('payments',this)">Payments or Paperwork Needed</button>
     <button class="nav-tab alert-tab" data-page="delivery" onclick="showPage('delivery',this)">Delivery Needed</button>
     <button class="nav-tab" data-page="clients"   onclick="showPage('clients',this)">Clients</button>
     <button class="nav-tab" data-page="addresses" onclick="showPage('addresses',this)">Addresses</button>
@@ -494,7 +494,7 @@ th.sortable:hover { color:var(--text); }
   </div>
 
   <div class="page" id="page-payments">
-    <div class="page-hdr"><div><div class="page-title">Payments Needed</div><div class="page-subtitle">Active deals with outstanding moving cost payments</div></div></div>
+    <div class="page-hdr"><div><div class="page-title">Payments or Paperwork Needed</div><div class="page-subtitle">Active deals with outstanding payments, cosigner forms, or unsigned leases</div></div></div>
     <div class="card"><div style="overflow-x:auto;"><table><thead><tr><th>Deal Name</th><th>Landlord</th><th>Agent</th><th>Lease Start</th><th>Outstanding</th><th>Stage</th><th></th></tr></thead><tbody id="payments-tbody"></tbody></table></div></div>
   </div>
 
@@ -822,7 +822,7 @@ let currentUser  = null; // { email, role, name }
 
 const SHEET_HEADERS = {
   deals:     ['id','status','stage','stageOverride','name','leaseStart','leaseEnd','addressId','addressDisplay','landlordId','landlordName','agentId','agentName','agentEmail','commission','additionalInfo','clients','cosigners','appfeeNeeded','appfeeReceived','appfeeDue','appfeeNotes','fmrNeeded','fmrReceived','fmrDue','fmrNotes','fmrDelivered','brokerNeeded','brokerReceived','brokerDue','brokerNotes','lmrNeeded','lmrReceived','lmrDue','lmrNotes','lmrDelivered','secdepNeeded','secdepReceived','secdepDue','secdepNotes','secdepDelivered','keyfeeNeeded','keyfeeReceived','keyfeeDue','keyfeeNotes','keyfeeDelivered','ncfNeeded','ncfDue','ncfReceived','ncfNotes','ncfDelivered','ncfPartialNotes','leaseReceived','leaseDelivered','leaseNotes','archiveReason','archivedOn','created','paymentLog'],
-  clients:   ['id','first','last','email','phone','notes'],
+  clients:   ['id','first','last','email','phone','notes','cosigners'],
   addresses: ['id','street1','street2','city','state','zip','rent','beds','baths'],
   landlords: ['id','name','email','phone','notes'],
   agents:    ['id','name','email','phone','notes'],
@@ -1012,6 +1012,9 @@ function rowToObj(tab, row) {
     try { obj.paymentLog = obj.paymentLog ? JSON.parse(obj.paymentLog) : []; } catch { obj.paymentLog=[]; }
     obj.stage = parseInt(obj.stage) || 0;
   }
+  if (tab === 'clients') {
+    try { obj.cosigners = obj.cosigners ? JSON.parse(obj.cosigners) : []; } catch { obj.cosigners=[]; }
+  }
   return obj;
 }
 function objToRow(tab, obj) {
@@ -1137,11 +1140,15 @@ function hasMissingBrokerFee(d) {
 function getPaymentIssues(d) {
   const issues = [];
   const check = (label, n, r) => { if (parseFloat(n||0)>0 && parseFloat(r||0)<parseFloat(n||0)) issues.push(label); };
+  check('App Fee', d.appfeeNeeded, d.appfeeReceived);
   check('FMR', d.fmrNeeded, d.fmrReceived);
   check('Broker Fee', d.brokerNeeded, d.brokerReceived);
   check('LMR', d.lmrNeeded, d.lmrReceived);
   check('Sec Dep', d.secdepNeeded, d.secdepReceived);
   check('Key Fee', d.keyfeeNeeded, d.keyfeeReceived);
+  // Paperwork
+  if (parseInt(d.ncfNeeded||0) > parseInt(d.ncfReceived||0)) issues.push('Cosigner Form');
+  if (d.leaseReceived === 'No') issues.push('Signed Lease');
   return issues;
 }
 
@@ -1305,7 +1312,10 @@ function renderPaymentsTable() {
       <td>${d.landlordName||'—'}</td>
       <td>${d.agentName||'—'}</td>
       <td>${formatDate(d.leaseStart)}</td>
-      <td><div class="issue-list">${issues.map(i=>`<span class="issue-tag payment">${i}</span>`).join('')}</div></td>
+      <td><div class="issue-list">${issues.map(i=>{
+        const isPaperwork = i==='Cosigner Form'||i==='Signed Lease';
+        return `<span class="issue-tag ${isPaperwork?'delivery':'payment'}">${i}</span>`;
+      }).join('')}</div></td>
       <td><span class="badge badge-stage-${stage}">${STAGE_NAMES[stage]}</span></td>
       <td onclick="event.stopPropagation()"><button class="btn btn-ghost btn-xs" onclick="editDeal('${d.id}')">Edit</button></td>
     </tr>`;
@@ -1792,7 +1802,15 @@ const OBJ_FORMS={
     <div class="form-group"><label>Last Name</label><input type="text" id="of-last" placeholder="Smith"></div>
     <div class="form-group"><label>Email</label><input type="email" id="of-email"></div>
     <div class="form-group"><label>Phone</label><input type="tel" id="of-phone"></div>
-    <div class="form-group full"><label>Notes</label><textarea id="of-notes"></textarea></div></div>`},
+    <div class="form-group full"><label>Notes</label><textarea id="of-notes"></textarea></div>
+    </div>
+    <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="font-family:var(--font-head);font-size:15px;">Notarized Cosigners</div>
+        <button class="btn btn-ghost btn-sm" type="button" onclick="addClientCosigner()">+ Add Cosigner</button>
+      </div>
+      <div id="of-cosigners-list"></div>
+    </div>`},
   address:{title:'Address',fields:`<div class="form-2col">
     <div class="form-group full"><label>Street Address</label><input type="text" id="of-street1" placeholder="123 Main St"></div>
     <div class="form-group full"><label>Street Line 2</label><input type="text" id="of-street2" placeholder="Unit 2"></div>
@@ -1818,12 +1836,18 @@ function openObjModal(type,fromDD,editId){
   const cfg=OBJ_FORMS[type];
   document.getElementById('obj-modal-title').textContent=(editId?'Edit ':'Add ')+cfg.title;
   document.getElementById('obj-modal-fields').innerHTML=cfg.fields;
+  if(type==='client') { window._clientCosigners = []; renderClientCosigners(); }
   if(editId){const rec=db[type+'s'].find(x=>x.id===editId);if(rec)populateObjForm(type,rec);}
   document.getElementById('obj-overlay').classList.add('open');
 }
 function populateObjForm(type,rec){
   const sf=(id,v)=>{const e=document.getElementById(id);if(e&&v!=null)e.value=v;};
-  if(type==='client'){sf('of-first',rec.first);sf('of-last',rec.last);sf('of-email',rec.email);sf('of-phone',rec.phone);sf('of-notes',rec.notes);}
+  if(type==='client'){
+    sf('of-first',rec.first);sf('of-last',rec.last);sf('of-email',rec.email);sf('of-phone',rec.phone);sf('of-notes',rec.notes);
+    // Load cosigners
+    window._clientCosigners = rec.cosigners ? [...rec.cosigners] : [];
+    renderClientCosigners();
+  }
   if(type==='address'){sf('of-street1',rec.street1);sf('of-street2',rec.street2);sf('of-city',rec.city);sf('of-state',rec.state);sf('of-zip',rec.zip);sf('of-rent',rec.rent);sf('of-beds',rec.beds);sf('of-baths',rec.baths);}
   if(type==='landlord'||type==='agent'){sf('of-name',rec.name);sf('of-email',rec.email);sf('of-phone',rec.phone);sf('of-notes',rec.notes);}
 }
@@ -1832,7 +1856,10 @@ async function saveObjModal(){
   const type=objModalType;
   const gf=id=>{const e=document.getElementById(id);return e?e.value.trim():'';};
   let rec={id:editingObjId||(type[0]+'_'+Date.now())};
-  if(type==='client'){rec.first=gf('of-first');rec.last=gf('of-last');rec.email=gf('of-email');rec.phone=gf('of-phone');rec.notes=gf('of-notes');}
+  if(type==='client'){
+    rec.first=gf('of-first');rec.last=gf('of-last');rec.email=gf('of-email');rec.phone=gf('of-phone');rec.notes=gf('of-notes');
+    rec.cosigners = window._clientCosigners || [];
+  }
   if(type==='address'){rec.street1=gf('of-street1');rec.street2=gf('of-street2');rec.city=gf('of-city');rec.state=gf('of-state');rec.zip=gf('of-zip');rec.rent=gf('of-rent');rec.beds=gf('of-beds');rec.baths=gf('of-baths');}
   if(type==='landlord'||type==='agent'){rec.name=gf('of-name');rec.email=gf('of-email');rec.phone=gf('of-phone');rec.notes=gf('of-notes');}
   const key=type+'s';
@@ -2333,10 +2360,14 @@ function openClientDetail(clientId) {
         ${c.notes?`<div style="grid-column:1/-1;"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:4px;">Notes</div>${c.notes}</div>`:''}
       </div>
     </div>
-    ${cosigners.length?`<div class="detail-card detail-full" style="margin-bottom:16px;">
+    ${(c.cosigners||[]).length?`<div class="detail-card detail-full" style="margin-bottom:16px;">
       <div class="detail-card-title">Notarized Cosigners</div>
-      ${cosigners.map(x=>`<div style="font-size:13.5px;padding:6px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;">
-        <span style="font-weight:500;">${x.name}</span><span style="color:var(--muted);">${x.deal}</span></div>`).join('')}
+      ${(c.cosigners||[]).map(x=>`<div style="padding:10px 0;border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;font-size:13px;">
+        <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:2px;">Name</div><strong>${x.name||'—'}</strong></div>
+        <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:2px;">Email</div>${x.email?`<a href="mailto:${x.email}" style="color:#000;text-decoration:underline;">${x.email}</a>`:'—'}</div>
+        <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:2px;">Phone</div>${x.phone||'—'}</div>
+        <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:2px;">Relationship</div>${x.relationship||'—'}</div>
+      </div>`).join('')}
     </div>`:''}
     <div class="detail-card detail-full">
       <div class="detail-card-title">Associated Deals</div>
@@ -2369,6 +2400,45 @@ function openDealFromClient(dealId) {
   setTimeout(() => openDealDetail(dealId), 50);
 }
 
+
+// ══════════════════════════════════════
+// CLIENT COSIGNERS (in obj modal)
+// ══════════════════════════════════════
+function addClientCosigner() {
+  if (!window._clientCosigners) window._clientCosigners = [];
+  window._clientCosigners.push({ name: '', email: '', phone: '' });
+  renderClientCosigners();
+}
+function removeClientCosigner(i) {
+  window._clientCosigners.splice(i, 1);
+  renderClientCosigners();
+}
+function renderClientCosigners() {
+  const el = document.getElementById('of-cosigners-list');
+  if (!el) return;
+  const list = window._clientCosigners || [];
+  if (!list.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:6px 0;">No cosigners added yet.</div>';
+    return;
+  }
+  el.innerHTML = list.map((c, i) => `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);">Cosigner ${i+1}</div>
+        <button type="button" class="btn btn-danger btn-xs" onclick="removeClientCosigner(${i})">Remove</button>
+      </div>
+      <div class="form-2col" style="gap:10px;">
+        <div class="form-group"><label>Full Name</label>
+          <input type="text" value="${c.name||''}" oninput="window._clientCosigners[${i}].name=this.value" placeholder="Jane Smith"></div>
+        <div class="form-group"><label>Email</label>
+          <input type="email" value="${c.email||''}" oninput="window._clientCosigners[${i}].email=this.value" placeholder="jane@email.com"></div>
+        <div class="form-group"><label>Phone</label>
+          <input type="tel" value="${c.phone||''}" oninput="window._clientCosigners[${i}].phone=this.value" placeholder="617-555-0100"></div>
+        <div class="form-group"><label>Relationship to Client</label>
+          <input type="text" value="${c.relationship||''}" oninput="window._clientCosigners[${i}].relationship=this.value" placeholder="Parent, Employer, etc."></div>
+      </div>
+    </div>`).join('');
+}
 
 // ══════════════════════════════════════
 // ROLE-BASED PERMISSIONS
