@@ -930,7 +930,6 @@ const SHEET_HEADERS = {
   landlords: ['id','name','email','phone','notes'],
   agents:    ['id','name','email','phone','notes'],
   users:         ['email','role','name'],
-  edit_requests: ['id','dealId','dealName','agentEmail','agentName','requestedAt','status','changeDescription','adminNote'],
 };
 
 // ── SYNC UI ──
@@ -985,25 +984,32 @@ function signOut() {
 }
 
 async function loadUserRole(email, name) {
-  // Check users sheet for this email
   try {
-    const data = await sheetsGet('users!A:C');
-    const rows = (data.values||[]).slice(1);
-    const userRow = rows.find(r => (r[0]||'').toLowerCase() === email.toLowerCase());
+    // Use already-loaded db.users
+    const userRow = (db.users||[]).find(r => (r.email||'').toLowerCase() === email.toLowerCase());
     if (userRow) {
-      currentUser = { email: userRow[0], role: userRow[1]||'agent', name: userRow[2]||name };
+      currentUser = { email: userRow.email, role: userRow.role||'agent', name: userRow.name||name };
     } else {
       // First time — default to agent, add to sheet
       currentUser = { email, role: 'agent', name: name||email };
-      await sheetsAppend('users', [[email, 'agent', name||email]]);
-      if (!db.users) db.users = [];
-      db.users.push(currentUser);
+      try {
+        await sheetsAppend('users', [[email, 'agent', name||email]]);
+        if (!db.users) db.users = [];
+        db.users.push(currentUser);
+      } catch(e) {
+        // users tab doesn't exist yet — create it with headers first
+        await sheetsPut('users!A1:C1', [['email','role','name']]);
+        await sheetsAppend('users', [[email, 'agent', name||email]]);
+        if (!db.users) db.users = [];
+        db.users.push(currentUser);
+      }
     }
   } catch(e) {
-    // users sheet may not exist yet — treat as admin for first user
+    // Fallback — treat as admin if can't load
     currentUser = { email, role: 'admin', name: name||email };
+    console.warn('Could not load user role:', e);
   }
-  // Show role in user bar
+  // Show role badge
   const roleEl = document.getElementById('user-role-badge');
   if (roleEl) {
     roleEl.textContent = currentUser.role === 'admin' ? 'Admin' : 'Agent';
@@ -1141,21 +1147,44 @@ async function ensureHeaders() {
 }
 
 async function loadFromSheets() {
-  // Init edit_requests
-  db.edit_requests = [];
-  for (const tab of Object.keys(SHEET_HEADERS)) {
+  // Core tabs always loaded
+  const coreTabs = ['deals','clients','addresses','landlords','agents'];
+  // Optional tabs — skip gracefully if they don't exist
+  const optionalTabs = ['users','edit_requests'];
+
+  for (const tab of coreTabs) {
     try {
       const data = await sheetsGet(`${tab}!A:ZZ`);
       const allRows = (data.values||[]).slice(1);
-      const filtered = allRows.map(r=>rowToObj(tab,r)).filter(o=>o.id);
+      // users and edit_requests don't have an id as first field
+      const noIdTabs = ['users'];
+      const filtered = noIdTabs.includes(tab)
+        ? allRows.map(r=>rowToObj(tab,r)).filter(o=>o.email)
+        : allRows.map(r=>rowToObj(tab,r)).filter(o=>o.id);
       console.log(`[${tab}] raw rows: ${allRows.length}, loaded: ${filtered.length}`);
-      if (allRows.length > 0 && filtered.length === 0) {
-        console.warn(`[${tab}] All rows filtered out — first row:`, allRows[0]);
-      }
       db[tab] = filtered;
     } catch(e) {
       db[tab] = [];
       console.warn('Failed to load', tab, e);
+    }
+  }
+
+  for (const tab of optionalTabs) {
+    try {
+      const data = await sheetsGet(`${tab}!A:ZZ`);
+      const allRows = (data.values||[]).slice(1);
+      if (tab === 'users') {
+        // users tab: email, role, name — no id field
+        db.users = allRows.map(r => ({ email: r[0]||'', role: r[1]||'agent', name: r[2]||'' })).filter(r=>r.email);
+        console.log(`[users] raw rows: ${allRows.length}, loaded: ${db.users.length}`);
+      } else {
+        const filtered = allRows.map(r=>rowToObj(tab,r)).filter(o=>o.id);
+        db[tab] = filtered;
+        console.log(`[${tab}] raw rows: ${allRows.length}, loaded: ${filtered.length}`);
+      }
+    } catch(e) {
+      db[tab] = [];
+      console.warn(`Optional tab [${tab}] not found or failed — will be created on first use`);
     }
   }
 }
@@ -2630,6 +2659,31 @@ function openEditRequestModal(dealId) {
   document.body.appendChild(modal);
 }
 
+
+async function saveEditRequest(req) {
+  const fields = ['id','dealId','dealName','agentEmail','agentName','requestedAt','status','changeDescription','adminNote'];
+  const row = fields.map(f => req[f] || '');
+  try {
+    // Try to find existing row and update it
+    const data = await sheetsGet('edit_requests!A:A').catch(()=>null);
+    if (data && data.values) {
+      const idx = data.values.findIndex(r=>r[0]===req.id);
+      if (idx > 0) {
+        await sheetsPut(`edit_requests!A${idx+1}:I${idx+1}`, [row]);
+        return;
+      }
+    }
+    // Append new row (also creates sheet if header row exists)
+    await sheetsAppend('edit_requests', [row]);
+  } catch(e) {
+    // Sheet may not exist yet — try to create header row first
+    try {
+      await sheetsPut('edit_requests!A1:I1', [['id','dealId','dealName','agentEmail','agentName','requestedAt','status','changeDescription','adminNote']]);
+      await sheetsAppend('edit_requests', [row]);
+    } catch(e2) { console.warn('Could not save edit request:', e2); }
+  }
+}
+
 async function submitEditRequest(dealId) {
   const desc = document.getElementById('edit-request-desc')?.value.trim();
   if (!desc) { alert('Please describe what needs to change.'); return; }
@@ -2647,7 +2701,7 @@ async function submitEditRequest(dealId) {
   };
   if (!db.edit_requests) db.edit_requests = [];
   db.edit_requests.push(req);
-  await saveRecord('edit_requests', req);
+  await saveEditRequest(req);
   document.getElementById('edit-request-overlay')?.remove();
   alert('Your edit request has been submitted. An admin will review it shortly.');
 }
@@ -2656,7 +2710,7 @@ async function approveEditRequest(reqId) {
   const req = (db.edit_requests||[]).find(r=>r.id===reqId);
   if (!req) return;
   req.status = 'approved';
-  await saveRecord('edit_requests', req);
+  await saveEditRequest(req);
   // Open the deal for editing
   renderRequestsTable();
   updateRequestsBadge();
@@ -2670,7 +2724,7 @@ async function rejectEditRequest(reqId) {
   if (!req) return;
   req.status = 'rejected';
   req.adminNote = note;
-  await saveRecord('edit_requests', req);
+  await saveEditRequest(req);
   renderRequestsTable();
   updateRequestsBadge();
 }
@@ -2720,6 +2774,33 @@ window.addEventListener('load', () => {
   const saved = localStorage.getItem('crm_anthropic_key');
   if (saved) document.getElementById('ai-api-key').value = saved;
 });
+
+// ══════════════════════════════════════
+// AI DEAL BUILDER
+// ══════════════════════════════════════
+function openAIDealModal() {
+  const saved = localStorage.getItem('ai_api_key');
+  if (saved) {
+    document.getElementById('ai-api-key').value = saved;
+    document.getElementById('ai-key-section').style.display = 'none';
+  } else {
+    document.getElementById('ai-key-section').style.display = '';
+  }
+  document.getElementById('ai-deal-input').value = '';
+  document.getElementById('ai-error').style.display = 'none';
+  document.getElementById('ai-loading').style.display = 'none';
+  document.getElementById('ai-deal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('ai-deal-input').focus(), 100);
+}
+function closeAIDealModal() {
+  document.getElementById('ai-deal-overlay').classList.remove('open');
+}
+function saveAIKey() {
+  const key = document.getElementById('ai-api-key').value.trim();
+  if (!key) return;
+  localStorage.setItem('ai_api_key', key);
+  document.getElementById('ai-key-section').style.display = 'none';
+}
 
 async function runAIDeal() {
   const apiKey = localStorage.getItem('ai_api_key') || document.getElementById('ai-api-key').value.trim();
