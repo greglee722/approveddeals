@@ -850,7 +850,7 @@ let tokenClient  = null;
 let currentUser  = null; // { email, role, name }
 
 const SHEET_HEADERS = {
-  deals:     ['id','status','stage','stageOverride','name','leaseStart','leaseEnd','addressId','addressDisplay','landlordId','landlordName','agentId','agentName','agentEmail','commission','additionalInfo','clients','cosigners','appfeeNeeded','appfeeReceived','appfeeDue','appfeeNotes','fmrNeeded','fmrReceived','fmrDue','fmrNotes','fmrDelivered','brokerNeeded','brokerReceived','brokerDue','brokerNotes','lmrNeeded','lmrReceived','lmrDue','lmrNotes','lmrDelivered','secdepNeeded','secdepReceived','secdepDue','secdepNotes','secdepDelivered','keyfeeNeeded','keyfeeReceived','keyfeeDue','keyfeeNotes','keyfeeDelivered','ncfNeeded','ncfDue','ncfReceived','ncfNotes','ncfDelivered','ncfPartialNotes','leaseReceived','leaseDelivered','leaseNotes','archiveReason','archivedOn','created','paymentLog'],
+  deals:     ['id','status','stage','stageOverride','name','leaseStart','leaseEnd','addressId','addressDisplay','landlordId','landlordName','agentId','agentName','commission','additionalInfo','clients','cosigners','appfeeNeeded','appfeeReceived','appfeeDue','appfeeNotes','fmrNeeded','fmrReceived','fmrDue','fmrNotes','fmrDelivered','brokerNeeded','brokerReceived','brokerDue','brokerNotes','lmrNeeded','lmrReceived','lmrDue','lmrNotes','lmrDelivered','secdepNeeded','secdepReceived','secdepDue','secdepNotes','secdepDelivered','keyfeeNeeded','keyfeeReceived','keyfeeDue','keyfeeNotes','keyfeeDelivered','ncfNeeded','ncfDue','ncfReceived','ncfNotes','ncfDelivered','ncfPartialNotes','leaseReceived','leaseDelivered','leaseNotes','archiveReason','archivedOn','created','paymentLog'],
   clients:   ['id','first','last','email','phone','notes','cosigners'],
   addresses: ['id','street1','street2','city','state','zip','rent','beds','baths'],
   landlords: ['id','name','email','phone','notes'],
@@ -1689,7 +1689,6 @@ async function saveDeal(status) {
     keyfeeNeeded:gv('df-keyfee-needed'),keyfeeReceived:gv('df-keyfee-received'),keyfeeDue:gv('df-keyfee-due'),keyfeeNotes:gv('df-keyfee-notes'),keyfeeDelivered:gv('df-keyfee-delivered'),
     ncfNeeded:gv('df-ncf-needed'),ncfDue:gv('df-ncf-due'),ncfReceived:gv('df-ncf-received'),ncfNotes:gv('df-ncf-notes'),ncfDelivered:gv('df-ncf-delivered'),ncfPartialNotes:gv('df-ncf-partial-notes'),
     leaseReceived:gv('df-lease-received'),leaseDelivered:gv('df-lease-delivered'),leaseNotes:gv('df-lease-notes'),
-    agentEmail: currentUser?.email||'',
     created: editingDealId?(db.deals.find(x=>x.id===editingDealId)||{}).created||new Date().toISOString():new Date().toISOString()
   };
   if(editingDealId) db.deals=db.deals.map(x=>x.id===editingDealId?deal:x);
@@ -2503,8 +2502,8 @@ function applyRolePermissions() {
     // Hide + New Deal button — agents can add deals
     // Filter deals to only their own
     db.deals = db.deals.filter(d =>
-      (d.agentEmail||'').toLowerCase() === currentUser.email.toLowerCase() ||
-      (d.agentName||'').toLowerCase() === (currentUser.name||'').toLowerCase()
+      (d.agentName||'').toLowerCase() === (currentUser.name||'').toLowerCase() ||
+      (d.agentName||'').toLowerCase().includes((currentUser.email||'').split('@')[0].toLowerCase())
     );
     // Filter clients to only ones they added (by matching deals)
     const agentClientIds = new Set();
