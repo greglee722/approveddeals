@@ -447,7 +447,7 @@ th.sortable:hover { color:var(--text); }
 
 <div id="app" style="display:none;">
 <header id="header">
-  <div class="logo">Approved<span>Deals</span></div>
+  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v1.0</span></div>
   <nav class="header-nav">
     <button class="nav-tab active" data-page="dashboard"  onclick="showPage('dashboard',this)">Dashboard</button>
     <button class="nav-tab alert-tab" data-page="payments" onclick="showPage('payments',this)">Payments &amp; Paperwork</button>
@@ -985,29 +985,33 @@ function signOut() {
 
 async function loadUserRole(email, name) {
   try {
-    // Use already-loaded db.users
-    const userRow = (db.users||[]).find(r => (r.email||'').toLowerCase() === email.toLowerCase());
+    // Always read fresh from sheet to get latest role
+    const data = await sheetsGet('users!A:C');
+    const rows = (data.values||[]).slice(1).filter(r => r[0]); // skip header, skip empty
+    db.users = rows.map(r => ({ email: r[0]||'', role: r[1]||'agent', name: r[2]||'' }));
+
+    const userRow = db.users.find(r => r.email.toLowerCase() === email.toLowerCase());
     if (userRow) {
       currentUser = { email: userRow.email, role: userRow.role||'agent', name: userRow.name||name };
     } else {
-      // First time — default to agent, add to sheet
-      currentUser = { email, role: 'agent', name: name||email };
-      try {
-        await sheetsAppend('users', [[email, 'agent', name||email]]);
-        if (!db.users) db.users = [];
-        db.users.push(currentUser);
-      } catch(e) {
-        // users tab doesn't exist yet — create it with headers first
+      // New user — first user ever gets admin, everyone else gets agent
+      const role = db.users.length === 0 ? 'admin' : 'agent';
+      currentUser = { email, role, name: name||email };
+      // Write header if needed
+      if (db.users.length === 0) {
         await sheetsPut('users!A1:C1', [['email','role','name']]);
-        await sheetsAppend('users', [[email, 'agent', name||email]]);
-        if (!db.users) db.users = [];
-        db.users.push(currentUser);
       }
+      await sheetsAppend('users', [[email, role, name||email]]);
+      db.users.push(currentUser);
     }
   } catch(e) {
-    // Fallback — treat as admin if can't load
+    // users tab doesn't exist yet — create it and add user as admin (first user)
+    try {
+      await sheetsPut('users!A1:C1', [['email','role','name']]);
+      await sheetsAppend('users', [[email, 'admin', name||email]]);
+    } catch(e2) { console.warn('Could not create users tab:', e2); }
     currentUser = { email, role: 'admin', name: name||email };
-    console.warn('Could not load user role:', e);
+    console.warn('Could not load user role, defaulting to admin:', e);
   }
   // Show role badge
   const roleEl = document.getElementById('user-role-badge');
@@ -2857,12 +2861,12 @@ Return this exact JSON structure:
   "clients": [
     { "id": "existing client id if matched else ''", "first": "", "last": "", "email": "", "phone": "" }
   ],
-  "appfeeNeeded": "0", "appfeeNotes": "",
-  "fmrNeeded": "0", "fmrNotes": "special instructions only e.g. payable to X",
-  "brokerNeeded": "0", "brokerNotes": "special instructions only",
-  "lmrNeeded": "0", "lmrNotes": "special instructions only",
-  "secdepNeeded": "0", "secdepNotes": "special instructions only",
-  "keyfeeNeeded": "0", "keyfeeNotes": "special instructions only",
+  "appfeeNeeded": "0", "appfeeReceived": "0", "appfeeNotes": "",
+  "fmrNeeded": "0", "fmrReceived": "0", "fmrNotes": "special instructions only e.g. payable to X",
+  "brokerNeeded": "0", "brokerReceived": "0", "brokerNotes": "special instructions only",
+  "lmrNeeded": "0", "lmrReceived": "0", "lmrNotes": "special instructions only",
+  "secdepNeeded": "0", "secdepReceived": "0", "secdepNotes": "special instructions only",
+  "keyfeeNeeded": "0", "keyfeeReceived": "0", "keyfeeNotes": "special instructions only",
   "ncfNeeded": "0",
   "ncfDue": "",
   "leaseStart": "YYYY-MM-DD or ''",
@@ -2870,6 +2874,7 @@ Return this exact JSON structure:
 }
 
 Example: "fmr/lmr/sec is $5000, lmr payable to landlord" → fmrNeeded:"5000", lmrNeeded:"5000", lmrNotes:"payable to landlord", secdepNeeded:"5000"
+Example: "broker fee of $2700 collected and delivered" → brokerNeeded:"2700", brokerReceived:"2700", brokerNotes:"collected and delivered"
 Example: "client is Greg Lee, greg@gmail.com" → clients:[{"id":"","first":"Greg","last":"Lee","email":"greg@gmail.com","phone":""}]`;
 
   try {
@@ -2922,7 +2927,7 @@ function showAIError(msg) {
   el.style.display = 'block';
 }
 
-function applyAIDeal(deal) {
+async function applyAIDeal(deal) {
   // Fill basic fields
   const sv = (id, val) => { const e = document.getElementById(id); if(e && val) e.value = val; };
   sv('df-name', deal.name);
@@ -2955,7 +2960,7 @@ function applyAIDeal(deal) {
       const newId = 'lnd_' + Date.now();
       const newLandlord = { id: newId, name: deal.landlordName, email: '', phone: '', notes: '' };
       db.landlords.push(newLandlord);
-      saveRecord('landlords', newLandlord);
+      await saveRecord('landlords', newLandlord);
       document.getElementById('df-landlord-id').value = newId;
       document.getElementById('dd-landlord-input').value = deal.landlordName;
     }
@@ -2969,13 +2974,22 @@ function applyAIDeal(deal) {
     document.getElementById('dd-agent-input').value = deal.agentName;
   }
 
-  // Payment fields
+  // Payment fields — set needed AND received if collected
   const payments = ['appfee','fmr','broker','lmr','secdep','keyfee'];
   payments.forEach(p => {
     sv('df-'+p+'-needed', deal[p+'Needed']);
     sv('df-'+p+'-notes', deal[p+'Notes']);
+    // If collected/received amount is specified, set received too
+    if (deal[p+'Received']) sv('df-'+p+'-received', deal[p+'Received']);
+    // If notes say "collected" or "received" with no separate received field, set received = needed
+    const notes = (deal[p+'Notes']||'').toLowerCase();
+    if (!deal[p+'Received'] && deal[p+'Needed'] && parseFloat(deal[p+'Needed'])>0 &&
+        (notes.includes('collected') || notes.includes('received') || notes.includes('paid'))) {
+      sv('df-'+p+'-received', deal[p+'Needed']);
+    }
   });
   sv('df-ncf-needed', deal.ncfNeeded);
+  sv('df-ncf-due', deal.ncfDue);
   sv('df-lease-received', deal.leaseReceived);
 
   // Handle clients array
@@ -2999,7 +3013,7 @@ function applyAIDeal(deal) {
       const newId = 'cli_' + Date.now() + '_' + Math.random().toString(36).slice(2,5);
       const newClient = { id: newId, first: nc.first||'', last: nc.last||'', email: nc.email||'', phone: nc.phone||'', notes: '' };
       db.clients.push(newClient);
-      saveRecord('clients', newClient);
+      await saveRecord('clients', newClient);
       selectedClients.push({ id: newId, name: `${newClient.first} ${newClient.last}`.trim() });
     }
   }
