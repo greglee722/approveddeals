@@ -2951,19 +2951,19 @@ async function runAIDeal() {
   const agentList = db.agents.map(a => `${a.id}: ${a.name}`).join('\n');
   const clientList = db.clients.map(c => `${c.id}: ${c.first} ${c.last} (${c.email||'no email'})`).join('\n');
 
-  const systemPrompt = \`You are a real estate CRM assistant. Extract deal information from the user's description and return ONLY valid JSON with these fields. If a field is not mentioned, use "" for strings and "0" for numbers.
+  const systemPrompt = `You are a real estate CRM assistant. Extract deal information from the user's description and return ONLY valid JSON with these fields. If a field is not mentioned, use "" for strings and "0" for numbers.
 
 Available addresses in system:
-\${addressList || 'None yet'}
+${addressList || 'None yet'}
 
 Available landlords:
-\${landlordList || 'None yet'}
+${landlordList || 'None yet'}
 
 Available agents:
-\${agentList || 'None yet'}
+${agentList || 'None yet'}
 
 Available clients:
-\${clientList || 'None yet'}
+${clientList || 'None yet'}
 
 Return JSON with these exact keys:
 {
@@ -2989,7 +2989,7 @@ Return JSON with these exact keys:
   "leaseReceived": ""
 }
 
-IMPORTANT: Return ONLY the JSON object, no markdown, no explanation.\`;
+IMPORTANT: Return ONLY the JSON object, no markdown, no explanation.`;
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -3100,7 +3100,7 @@ function applyAIDeal(deal) {
     } else {
       // Show a note that client will need to be created
       const info = document.getElementById('df-additional-info');
-      const clientNote = \`[New client to add: \${nc.first} \${nc.last}\${nc.email?' - '+nc.email:''}]\`;
+      const clientNote = `[New client to add: ${nc.first} ${nc.last}${nc.email?' - '+nc.email:''}]`;
       if (info && !info.value.includes(clientNote)) {
         info.value = (info.value ? info.value + '\n' : '') + clientNote;
       }
