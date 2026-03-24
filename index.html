@@ -1047,17 +1047,6 @@ function saveDB() { /* no-op */ }
 // DATA
 // ══════════════════════════════════════
 let db = { deals:[], clients:[], addresses:[], landlords:[], agents:[] };
-function loadDB() {
-  ['deals','clients','addresses','landlords','agents'].forEach(k=>{
-    const v=localStorage.getItem('acrm_'+k); if(v) db[k]=JSON.parse(v);
-  });
-}
-function saveDB() {
-  ['deals','clients','addresses','landlords','agents'].forEach(k=>{
-    localStorage.setItem('acrm_'+k,JSON.stringify(db[k]));
-  });
-}
-loadDB();
 
 // ══════════════════════════════════════
 // STAGE LOGIC
@@ -2210,7 +2199,7 @@ function goToClient(clientId) {
 // CLIENT POPUP & CLIENT DETAIL
 // ══════════════════════════════════════
 function openClientPopup(clientId, clientName) {
-function openClientPopup(clientId, clientName) {
+  let c = db.clients.find(x => x.id === clientId);
   if (!c) c = db.clients.find(x => `${x.first||''} ${x.last||''}`.trim() === clientName);
   if (!c) c = db.clients.find(x => clientName && (`${x.first||''} ${x.last||''}`.trim().toLowerCase() === clientName.toLowerCase()));
   document.getElementById('client-popup-name').textContent = clientName || 'Client';
