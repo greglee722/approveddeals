@@ -424,6 +424,7 @@ th.sortable:hover { color:var(--text); }
 <!-- USER BAR -->
 <div id="user-bar">
   <span id="user-email"></span>
+  <span id="user-role-badge" style="padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;color:#fff;background:#000;"></span>
   <button onclick="signOut()">Sign out</button>
 </div>
 
@@ -447,6 +448,7 @@ th.sortable:hover { color:var(--text); }
     <button class="nav-tab" data-page="agents"    onclick="showPage('agents',this)">Agents</button>
     <button class="nav-tab archive-tab" data-page="archived" onclick="showPage('archived',this)">Archived</button>
     <button class="nav-tab archive-tab" data-page="drafts"   onclick="showPage('drafts',this)">Drafts</button>
+    <button class="nav-tab archive-tab" id="nav-requests" data-page="requests" onclick="showPage('requests',this)" style="display:none;">Edit Requests <span id="requests-badge" style="background:#c0392b;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px;display:none;"></span></button>
   </nav>
 </header>
 <div id="main">
@@ -544,6 +546,18 @@ th.sortable:hover { color:var(--text); }
     <div class="page-hdr"><div><div class="page-title">Drafts</div><div class="page-subtitle">Deals saved as drafts — complete and activate when ready</div></div></div>
     <div class="card"><div style="overflow-x:auto;"><table><thead><tr><th>Deal Name</th><th>Lease Start</th><th>Landlord</th><th>Agent</th><th>Created</th><th></th></tr></thead><tbody id="drafts-tbody"></tbody></table></div></div>
   </div>
+
+  <!-- EDIT REQUESTS (Admin only) -->
+  <div class="page" id="page-requests">
+    <div class="page-hdr">
+      <div><div class="page-title">Edit Requests</div><div class="page-subtitle">Agent-submitted requests to modify approved deals</div></div>
+    </div>
+    <div class="card"><div style="overflow-x:auto;"><table>
+      <thead><tr><th>Deal</th><th>Agent</th><th>Requested</th><th>Change Description</th><th>Status</th><th></th></tr></thead>
+      <tbody id="requests-tbody"></tbody>
+    </table></div></div>
+  </div>
+
 
 </div><!-- /main -->
 
@@ -804,13 +818,16 @@ const SHEETS_BASE    = 'https://sheets.googleapis.com/v4/spreadsheets/' + SPREAD
 
 let accessToken  = null;
 let tokenClient  = null;
+let currentUser  = null; // { email, role, name }
 
 const SHEET_HEADERS = {
-  deals:     ['id','status','stage','stageOverride','name','leaseStart','leaseEnd','addressId','addressDisplay','landlordId','landlordName','agentId','agentName','commission','additionalInfo','clients','cosigners','appfeeNeeded','appfeeReceived','appfeeDue','appfeeNotes','fmrNeeded','fmrReceived','fmrDue','fmrNotes','fmrDelivered','brokerNeeded','brokerReceived','brokerDue','brokerNotes','lmrNeeded','lmrReceived','lmrDue','lmrNotes','lmrDelivered','secdepNeeded','secdepReceived','secdepDue','secdepNotes','secdepDelivered','keyfeeNeeded','keyfeeReceived','keyfeeDue','keyfeeNotes','keyfeeDelivered','ncfNeeded','ncfDue','ncfReceived','ncfNotes','ncfDelivered','ncfPartialNotes','leaseReceived','leaseDelivered','leaseNotes','archiveReason','archivedOn','created','paymentLog'],
+  deals:     ['id','status','stage','stageOverride','name','leaseStart','leaseEnd','addressId','addressDisplay','landlordId','landlordName','agentId','agentName','agentEmail','commission','additionalInfo','clients','cosigners','appfeeNeeded','appfeeReceived','appfeeDue','appfeeNotes','fmrNeeded','fmrReceived','fmrDue','fmrNotes','fmrDelivered','brokerNeeded','brokerReceived','brokerDue','brokerNotes','lmrNeeded','lmrReceived','lmrDue','lmrNotes','lmrDelivered','secdepNeeded','secdepReceived','secdepDue','secdepNotes','secdepDelivered','keyfeeNeeded','keyfeeReceived','keyfeeDue','keyfeeNotes','keyfeeDelivered','ncfNeeded','ncfDue','ncfReceived','ncfNotes','ncfDelivered','ncfPartialNotes','leaseReceived','leaseDelivered','leaseNotes','archiveReason','archivedOn','created','paymentLog'],
   clients:   ['id','first','last','email','phone','notes'],
   addresses: ['id','street1','street2','city','state','zip','rent','beds','baths'],
   landlords: ['id','name','email','phone','notes'],
   agents:    ['id','name','email','phone','notes'],
+  users:         ['email','role','name'],
+  edit_requests: ['id','dealId','dealName','agentEmail','agentName','requestedAt','status','changeDescription','adminNote'],
 };
 
 // ── SYNC UI ──
@@ -864,6 +881,36 @@ function signOut() {
   document.getElementById('auth-screen').style.display = 'flex';
 }
 
+async function loadUserRole(email, name) {
+  // Check users sheet for this email
+  try {
+    const data = await sheetsGet('users!A:C');
+    const rows = (data.values||[]).slice(1);
+    const userRow = rows.find(r => (r[0]||'').toLowerCase() === email.toLowerCase());
+    if (userRow) {
+      currentUser = { email: userRow[0], role: userRow[1]||'agent', name: userRow[2]||name };
+    } else {
+      // First time — default to agent, add to sheet
+      currentUser = { email, role: 'agent', name: name||email };
+      await sheetsAppend('users', [[email, 'agent', name||email]]);
+      if (!db.users) db.users = [];
+      db.users.push(currentUser);
+    }
+  } catch(e) {
+    // users sheet may not exist yet — treat as admin for first user
+    currentUser = { email, role: 'admin', name: name||email };
+  }
+  // Show role in user bar
+  const roleEl = document.getElementById('user-role-badge');
+  if (roleEl) {
+    roleEl.textContent = currentUser.role === 'admin' ? 'Admin' : 'Agent';
+    roleEl.style.background = currentUser.role === 'admin' ? '#000' : '#4a7c59';
+  }
+}
+
+function isAdmin() { return currentUser?.role === 'admin'; }
+function isAgent() { return currentUser?.role === 'agent'; }
+
 async function startApp() {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('loading-screen').classList.add('show');
@@ -877,6 +924,8 @@ async function startApp() {
       const u = await uRes.json();
       document.getElementById('user-email').textContent = u.email || '';
       document.getElementById('user-bar').classList.add('show');
+      // Load user role
+      await loadUserRole(u.email, u.name);
     }
 
     document.getElementById('loading-sub').textContent = 'Setting up your sheet…';
@@ -886,6 +935,7 @@ async function startApp() {
 
     document.getElementById('loading-screen').classList.remove('show');
     document.getElementById('app').style.display = 'block';
+    applyRolePermissions();
     rebuildFilters(); applyFilters(); renderStats();
     // Render all object tables so data shows immediately on any tab
     renderObjTable('client');
@@ -985,6 +1035,8 @@ async function ensureHeaders() {
 }
 
 async function loadFromSheets() {
+  // Init edit_requests
+  db.edit_requests = [];
   for (const tab of Object.keys(SHEET_HEADERS)) {
     try {
       const data = await sheetsGet(`${tab}!A:ZZ`);
@@ -1133,6 +1185,7 @@ function showPage(p, btn) {
   if (p==='agents')    renderObjTable('agent');
   if (p==='archived')  renderArchivedTable();
   if (p==='drafts')    renderDraftsTable();
+  if (p==='requests')  renderRequestsTable();
 }
 
 // ══════════════════════════════════════
@@ -1324,10 +1377,15 @@ function openDealDetail(id) {
       Back to All Deals
     </div>
     <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:12px;gap:8px;">
-      <button class="btn btn-outline btn-sm" onclick="editDeal('${d.id}')">Edit Deal</button>
-      <button class="btn btn-primary btn-sm" onclick="openPaymentModal('${d.id}')">+ Payment / Paperwork</button>
-      <button class="btn btn-ghost btn-sm" onclick="openArchiveModal('${d.id}')">Archive</button>
-      <button class="btn btn-danger btn-sm" onclick="deleteDeal('${d.id}')">Delete</button>
+      ${isAdmin() ? `
+        <button class="btn btn-outline btn-sm" onclick="editDeal('${d.id}')">Edit Deal</button>
+        <button class="btn btn-primary btn-sm" onclick="openPaymentModal('${d.id}')">+ Payment / Paperwork</button>
+        <button class="btn btn-ghost btn-sm" onclick="openArchiveModal('${d.id}')">Archive</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteDeal('${d.id}')">Delete</button>
+      ` : `
+        <button class="btn btn-outline btn-sm" onclick="openEditRequestModal('${d.id}')">Request Edit</button>
+        <button class="btn btn-primary btn-sm" onclick="openPaymentModal('${d.id}')">+ Payment / Paperwork</button>
+      `}
     </div>
     <div class="stage-bar" style="margin-bottom:20px;">${stageBar}</div>
     <div class="detail-hero">
@@ -1523,7 +1581,16 @@ function openDealModal(editId) {
 
 function setV(id,val){const e=document.getElementById(id);if(e&&val!=null)e.value=val;}
 function closeDealModal(){document.getElementById('deal-overlay').classList.remove('open');closeAllDD();}
-function editDeal(id){openDealModal(id);}
+function editDeal(id){
+  const deal = db.deals.find(d=>d.id===id);
+  if (!deal) return;
+  // Agents cannot edit approved (active) deals directly
+  if (isAgent() && deal.status === 'active') {
+    openEditRequestModal(id);
+    return;
+  }
+  openDealModal(id);
+}
 
 function autoLeaseEnd(){
   const s=document.getElementById('df-lease-start').value; if(!s) return;
@@ -1582,6 +1649,7 @@ async function saveDeal(status) {
     keyfeeNeeded:gv('df-keyfee-needed'),keyfeeReceived:gv('df-keyfee-received'),keyfeeDue:gv('df-keyfee-due'),keyfeeNotes:gv('df-keyfee-notes'),keyfeeDelivered:gv('df-keyfee-delivered'),
     ncfNeeded:gv('df-ncf-needed'),ncfDue:gv('df-ncf-due'),ncfReceived:gv('df-ncf-received'),ncfNotes:gv('df-ncf-notes'),ncfDelivered:gv('df-ncf-delivered'),ncfPartialNotes:gv('df-ncf-partial-notes'),
     leaseReceived:gv('df-lease-received'),leaseDelivered:gv('df-lease-delivered'),leaseNotes:gv('df-lease-notes'),
+    agentEmail: currentUser?.email||'',
     created: editingDealId?(db.deals.find(x=>x.id===editingDealId)||{}).created||new Date().toISOString():new Date().toISOString()
   };
   if(editingDealId) db.deals=db.deals.map(x=>x.id===editingDealId?deal:x);
@@ -2299,6 +2367,152 @@ function openDealFromClient(dealId) {
   closeClientDetail();
   showPage('dashboard', document.querySelector('[data-page="dashboard"]'));
   setTimeout(() => openDealDetail(dealId), 50);
+}
+
+
+// ══════════════════════════════════════
+// ROLE-BASED PERMISSIONS
+// ══════════════════════════════════════
+function applyRolePermissions() {
+  if (!currentUser) return;
+  if (isAdmin()) {
+    // Show all tabs including Edit Requests
+    document.getElementById('nav-requests').style.display = '';
+    updateRequestsBadge();
+  } else {
+    // Agent: hide admin-only tabs
+    document.getElementById('nav-requests').style.display = 'none';
+    // Hide + New Deal button — agents can add deals
+    // Filter deals to only their own
+    db.deals = db.deals.filter(d =>
+      (d.agentEmail||'').toLowerCase() === currentUser.email.toLowerCase() ||
+      (d.agentName||'').toLowerCase() === (currentUser.name||'').toLowerCase()
+    );
+    // Filter clients to only ones they added (by matching deals)
+    const agentClientIds = new Set();
+    db.deals.forEach(d => (d.clients||[]).forEach(c => agentClientIds.add(c.id)));
+    db.clients = db.clients.filter(c => agentClientIds.has(c.id));
+    // Filter addresses to ones on their deals
+    const agentAddressIds = new Set(db.deals.map(d => d.addressId).filter(Boolean));
+    db.addresses = db.addresses.filter(a => agentAddressIds.has(a.id));
+    // Landlords: agents see all landlords (no filter)
+    // Hide admin actions
+  }
+}
+
+function updateRequestsBadge() {
+  const pending = (db.edit_requests||[]).filter(r=>r.status==='pending').length;
+  const badge = document.getElementById('requests-badge');
+  const nav = document.getElementById('nav-requests');
+  if (badge) {
+    if (pending > 0) { badge.textContent = pending; badge.style.display = 'inline'; }
+    else badge.style.display = 'none';
+  }
+}
+
+// ── EDIT REQUEST MODAL ──
+function openEditRequestModal(dealId) {
+  const deal = db.deals.find(d=>d.id===dealId);
+  if (!deal) return;
+  // Build modal dynamically
+  const existing = document.getElementById('edit-request-overlay');
+  if (existing) existing.remove();
+  const modal = document.createElement('div');
+  modal.className = 'mini-overlay open';
+  modal.id = 'edit-request-overlay';
+  modal.innerHTML = `<div class="mini-modal" style="width:520px;">
+    <div class="mini-title">Request to Edit Deal</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">
+      This deal is approved. Describe the change you need — an admin will review and apply it.
+    </p>
+    <div class="form-group" style="margin-bottom:16px;">
+      <label>Deal</label>
+      <div style="font-size:13.5px;font-weight:500;padding:8px 0;">${deal.name||'—'}</div>
+    </div>
+    <div class="form-group">
+      <label>What needs to change and why?</label>
+      <textarea id="edit-request-desc" style="min-height:100px;" placeholder="e.g. LMR amount needs to be updated from $3,150 to $2,800 — landlord agreed to a reduction"></textarea>
+    </div>
+    <div class="mini-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('edit-request-overlay').remove()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitEditRequest('${dealId}')">Submit Request</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+}
+
+async function submitEditRequest(dealId) {
+  const desc = document.getElementById('edit-request-desc')?.value.trim();
+  if (!desc) { alert('Please describe what needs to change.'); return; }
+  const deal = db.deals.find(d=>d.id===dealId);
+  const req = {
+    id: 'req_' + Date.now(),
+    dealId,
+    dealName: deal?.name||'',
+    agentEmail: currentUser.email,
+    agentName: currentUser.name||currentUser.email,
+    requestedAt: new Date().toISOString(),
+    status: 'pending',
+    changeDescription: desc,
+    adminNote: ''
+  };
+  if (!db.edit_requests) db.edit_requests = [];
+  db.edit_requests.push(req);
+  await saveRecord('edit_requests', req);
+  document.getElementById('edit-request-overlay')?.remove();
+  alert('Your edit request has been submitted. An admin will review it shortly.');
+}
+
+async function approveEditRequest(reqId) {
+  const req = (db.edit_requests||[]).find(r=>r.id===reqId);
+  if (!req) return;
+  req.status = 'approved';
+  await saveRecord('edit_requests', req);
+  // Open the deal for editing
+  renderRequestsTable();
+  updateRequestsBadge();
+  openDealModal(req.dealId);
+  alert('Request approved. The deal is now open for editing.');
+}
+
+async function rejectEditRequest(reqId) {
+  const note = prompt('Reason for rejecting (optional):') || '';
+  const req = (db.edit_requests||[]).find(r=>r.id===reqId);
+  if (!req) return;
+  req.status = 'rejected';
+  req.adminNote = note;
+  await saveRecord('edit_requests', req);
+  renderRequestsTable();
+  updateRequestsBadge();
+}
+
+function renderRequestsTable() {
+  const tbody = document.getElementById('requests-tbody');
+  if (!tbody) return;
+  const rows = [...(db.edit_requests||[])].sort((a,b)=>a.requestedAt<b.requestedAt?1:-1);
+  if (!rows.length) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="6">No edit requests yet.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(r => {
+    const dt = r.requestedAt ? new Date(r.requestedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
+    const statusBadge = r.status==='pending'
+      ? '<span class="badge" style="background:#fef3cd;color:#8a6000;">Pending</span>'
+      : r.status==='approved'
+        ? '<span class="badge badge-active">Approved</span>'
+        : '<span class="badge" style="background:#fdf0ef;color:#c0392b;">Rejected</span>';
+    const actions = r.status==='pending' ? `
+      <button class="btn btn-primary btn-xs" onclick="approveEditRequest('${r.id}')">Approve</button>
+      <button class="btn btn-danger btn-xs" style="margin-left:4px;" onclick="rejectEditRequest('${r.id}')">Reject</button>` : '';
+    return `<tr>
+      <td style="font-weight:500;">${r.dealName||'—'}</td>
+      <td style="color:var(--muted);font-size:12.5px;">${r.agentName||r.agentEmail||'—'}</td>
+      <td style="color:var(--muted);font-size:12.5px;">${dt}</td>
+      <td style="font-size:13px;max-width:300px;">${r.changeDescription||'—'}${r.adminNote?`<div style="font-size:11.5px;color:var(--muted);margin-top:3px;">Admin note: ${r.adminNote}</div>`:''}</td>
+      <td>${statusBadge}</td>
+      <td style="white-space:nowrap;">${actions}</td>
+    </tr>`;
+  }).join('');
 }
 
 // LEASE SORT
