@@ -2722,219 +2722,6 @@ window.addEventListener('load', () => {
 });
 
 async function runAIDeal() {
-  const text = document.getElementById('ai-deal-input').value.trim();
-  if (!text) { showAIStatus('Please describe the deal first.', 'error'); return; }
-
-  let apiKey = document.getElementById('ai-api-key').value.trim();
-  if (!apiKey) { showAIStatus('Please enter your Anthropic API key.', 'error'); return; }
-  localStorage.setItem('crm_anthropic_key', apiKey);
-
-  const btn = document.getElementById('ai-run-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="animation:spin 0.8s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Thinking…';
-  showAIStatus('Sending to Claude…', 'loading');
-
-  // Build address/client/landlord/agent lists for context
-  const addresses = db.addresses.map(a => `${a.id}: ${addrDisplay(a)}`).join('\n');
-  const clients   = db.clients.map(c => `${c.id}: ${c.first} ${c.last} (${c.email||'no email'})`).join('\n');
-  const landlords = db.landlords.map(l => `${l.id}: ${l.name}`).join('\n');
-  const agents    = db.agents.map(a => `${a.id}: ${a.name}`).join('\n');
-
-  const systemPrompt = `You are a real estate CRM assistant. Extract deal information from natural language descriptions and return ONLY a valid JSON object with these exact fields. Do not include any explanation or markdown — just the raw JSON.
-
-Fields to extract:
-- name: deal name (usually the address, e.g. "123 Main St, #2, Boston, MA")
-- leaseStart: YYYY-MM-DD format or ""
-- leaseEnd: YYYY-MM-DD format or ""
-- addressDisplay: full address string
-- addressId: match from existing addresses list below, or ""
-- landlordName: landlord name or ""
-- landlordId: match from existing landlords list below, or ""
-- agentName: agent name or ""
-- agentId: match from existing agents list below, or ""
-- commission: number as string or ""
-- additionalInfo: any notes not captured elsewhere
-- clients: array of {id, name} objects — match from existing clients, or use {id:"", name:"Full Name"} for new
-- appfeeNeeded: number as string or ""
-- fmrNeeded: number as string or ""
-- fmrNotes: notes about FMR or ""
-- brokerNeeded: number as string or ""
-- brokerNotes: notes about broker fee or ""
-- lmrNeeded: number as string or ""
-- lmrNotes: notes about LMR or ""
-- secdepNeeded: number as string or ""
-- secdepNotes: notes about security deposit or ""
-- keyfeeNeeded: number as string or ""
-- keyfeeNotes: notes about key fee or ""
-- ncfNeeded: number (0-10) as string
-- leaseStart: YYYY-MM-DD or ""
-
-Existing data for matching:
-ADDRESSES:
-${addresses || 'none'}
-
-CLIENTS:
-${clients || 'none'}
-
-LANDLORDS:
-${landlords || 'none'}
-
-AGENTS:
-${agents || 'none'}
-
-Return ONLY the JSON object. No markdown, no explanation.`;
-
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: text }]
-      })
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(()=>({}));
-      throw new Error(err.error?.message || 'API error ' + res.status);
-    }
-
-    const data = await res.json();
-    const rawText = data.content?.[0]?.text || '';
-
-    // Parse JSON from response
-    let deal;
-    try {
-      const clean = rawText.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/\s*```$/,'').trim();
-      deal = JSON.parse(clean);
-    } catch(e) {
-      throw new Error('Could not parse AI response. Try rephrasing your description.');
-    }
-
-    btn.disabled = false;
-    btn.innerHTML = '<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg> Create Deal';
-    showAIStatus('✓ Deal extracted! Review the form and save.', 'success');
-
-    // Pre-fill and open deal modal
-    openDealModal();
-    setTimeout(() => fillDealModalFromAI(deal), 100);
-
-  } catch(e) {
-    btn.disabled = false;
-    btn.innerHTML = '<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg> Create Deal';
-    showAIStatus('Error: ' + e.message, 'error');
-  }
-}
-
-function showAIStatus(msg, type) {
-  const el = document.getElementById('ai-status');
-  el.style.display = 'block';
-  el.textContent = msg;
-  el.style.background = type==='error' ? '#fdf0ef' : type==='success' ? '#f0f8f4' : '#f5f3ef';
-  el.style.color = type==='error' ? '#c0392b' : type==='success' ? '#1a6b3a' : '#6a4800';
-  el.style.border = type==='error' ? '1px solid #f5c6c2' : type==='success' ? '1px solid #b7dfc9' : '1px solid #e8d9b0';
-}
-
-function fillDealModalFromAI(d) {
-  // Basic fields
-  if (d.name) setV('df-name', d.name);
-  if (d.leaseStart) setV('df-lease-start', d.leaseStart);
-  if (d.leaseEnd) setV('df-lease-end', d.leaseEnd);
-  if (d.commission) setV('df-commission', d.commission);
-  if (d.additionalInfo) setV('df-additional-info', d.additionalInfo);
-
-  // Address
-  if (d.addressId) {
-    setV('df-address-id', d.addressId);
-    const addr = db.addresses.find(a=>a.id===d.addressId);
-    if (addr) document.getElementById('dd-address-input').value = addrDisplay(addr);
-  } else if (d.addressDisplay) {
-    document.getElementById('dd-address-input').value = d.addressDisplay;
-  }
-
-  // Landlord
-  if (d.landlordId) {
-    setV('df-landlord-id', d.landlordId);
-    const ll = db.landlords.find(l=>l.id===d.landlordId);
-    if (ll) document.getElementById('dd-landlord-input').value = ll.name;
-  } else if (d.landlordName) {
-    document.getElementById('dd-landlord-input').value = d.landlordName;
-  }
-
-  // Agent
-  if (d.agentId) {
-    setV('df-agent-id', d.agentId);
-    const ag = db.agents.find(a=>a.id===d.agentId);
-    if (ag) document.getElementById('dd-agent-input').value = ag.name;
-  } else if (d.agentName) {
-    document.getElementById('dd-agent-input').value = d.agentName;
-  }
-
-  // Clients
-  if (d.clients && d.clients.length) {
-    selectedClients = d.clients.map(c => {
-      // Try to match existing client
-      const existing = db.clients.find(cl => cl.id === c.id ||
-        `${cl.first} ${cl.last}`.toLowerCase() === (c.name||'').toLowerCase());
-      return existing ? { id: existing.id, name: `${existing.first} ${existing.last}` } : { id: c.id||'new_'+Date.now(), name: c.name||'' };
-    });
-    renderSelectedClients();
-  }
-
-  // Payments
-  const fields = ['appfee','fmr','broker','lmr','secdep','keyfee'];
-  fields.forEach(f => {
-    if (d[f+'Needed'])  setV('df-'+f+'-needed',  d[f+'Needed']);
-    if (d[f+'Notes'])   setV('df-'+f+'-notes',   d[f+'Notes']);
-    if (d[f+'Due'])     setV('df-'+f+'-due',      d[f+'Due']);
-  });
-
-  // NCF
-  if (d.ncfNeeded) setV('df-ncf-needed', d.ncfNeeded);
-
-  // Auto-stage
-  autoStage();
-
-  // Clear AI input
-  document.getElementById('ai-deal-input').value = '';
-}
-
-
-// ══════════════════════════════════════
-// AI DEAL BUILDER
-// ══════════════════════════════════════
-function openAIDealModal() {
-  const saved = localStorage.getItem('ai_api_key');
-  if (saved) {
-    document.getElementById('ai-api-key').value = saved;
-    document.getElementById('ai-key-section').style.display = 'none';
-  } else {
-    document.getElementById('ai-key-section').style.display = '';
-  }
-  document.getElementById('ai-deal-input').value = '';
-  document.getElementById('ai-error').style.display = 'none';
-  document.getElementById('ai-loading').style.display = 'none';
-  document.getElementById('ai-deal-overlay').classList.add('open');
-  setTimeout(() => document.getElementById('ai-deal-input').focus(), 100);
-}
-function closeAIDealModal() {
-  document.getElementById('ai-deal-overlay').classList.remove('open');
-}
-function saveAIKey() {
-  const key = document.getElementById('ai-api-key').value.trim();
-  if (!key) return;
-  localStorage.setItem('ai_api_key', key);
-  document.getElementById('ai-key-section').style.display = 'none';
-}
-
-async function runAIDeal() {
   const apiKey = localStorage.getItem('ai_api_key') || document.getElementById('ai-api-key').value.trim();
   if (!apiKey) { showAIError('Please enter your Anthropic API key first.'); return; }
 
@@ -2951,9 +2738,17 @@ async function runAIDeal() {
   const agentList = db.agents.map(a => `${a.id}: ${a.name}`).join('\n');
   const clientList = db.clients.map(c => `${c.id}: ${c.first} ${c.last} (${c.email||'no email'})`).join('\n');
 
-  const systemPrompt = `You are a real estate CRM assistant. Extract deal information from the user's description and return ONLY valid JSON with these fields. If a field is not mentioned, use "" for strings and "0" for numbers.
+  const systemPrompt = `You are a real estate CRM data extraction assistant. Extract deal information from the user's description and return ONLY a valid JSON object. No markdown, no explanation, no code fences — just raw JSON.
 
-Available addresses in system:
+CRITICAL RULES:
+1. Payment amounts (fmr, lmr, secdep, broker, appfee, keyfee) MUST go into the "Needed" fields as numeric strings (e.g. "5000"), NOT into notes.
+2. Notes fields are ONLY for special instructions like "payable to X" or delivery notes — never for amounts.
+3. If a single amount applies to multiple payment types (e.g. "fmr/lmr/sec is $5000"), set each one's Needed field to that amount.
+4. For clients: extract ALL client names/emails into the "clients" array — even if they are new.
+5. For landlords: put the landlord name in "landlordName" even if not in the existing list.
+6. Match existing records by comparing names case-insensitively.
+
+Available addresses:
 ${addressList || 'None yet'}
 
 Available landlords:
@@ -2965,31 +2760,36 @@ ${agentList || 'None yet'}
 Available clients:
 ${clientList || 'None yet'}
 
-Return JSON with these exact keys:
+Return this exact JSON structure:
 {
-  "name": "deal name (use address as name if not specified)",
-  "addressId": "match to existing address id if found, else ''",
+  "name": "deal name — use address if not specified",
+  "addressId": "existing address id if matched, else ''",
   "addressDisplay": "full address string",
   "leaseStart": "YYYY-MM-DD or ''",
   "leaseEnd": "YYYY-MM-DD or ''",
-  "landlordId": "match existing landlord id if found, else ''",
-  "landlordName": "landlord name or ''",
-  "agentId": "match existing agent id if found, else ''",
+  "landlordId": "existing landlord id if matched, else ''",
+  "landlordName": "landlord name (always fill if mentioned)",
+  "agentId": "existing agent id if matched, else ''",
   "agentName": "agent name or ''",
-  "commission": "number as string or ''",
-  "additionalInfo": "any extra notes not captured elsewhere",
-  "newClient": { "first": "", "last": "", "email": "", "phone": "" },
+  "commission": "dollar amount as string or ''",
+  "additionalInfo": "only notes that don't fit other fields",
+  "clients": [
+    { "id": "existing client id if matched else ''", "first": "", "last": "", "email": "", "phone": "" }
+  ],
   "appfeeNeeded": "0", "appfeeNotes": "",
-  "fmrNeeded": "0", "fmrNotes": "",
-  "brokerNeeded": "0", "brokerNotes": "",
-  "lmrNeeded": "0", "lmrNotes": "",
-  "secdepNeeded": "0", "secdepNotes": "",
-  "keyfeeNeeded": "0", "keyfeeNotes": "",
+  "fmrNeeded": "0", "fmrNotes": "special instructions only e.g. payable to X",
+  "brokerNeeded": "0", "brokerNotes": "special instructions only",
+  "lmrNeeded": "0", "lmrNotes": "special instructions only",
+  "secdepNeeded": "0", "secdepNotes": "special instructions only",
+  "keyfeeNeeded": "0", "keyfeeNotes": "special instructions only",
   "ncfNeeded": "0",
+  "ncfDue": "",
+  "leaseStart": "YYYY-MM-DD or ''",
   "leaseReceived": ""
 }
 
-IMPORTANT: Return ONLY the JSON object, no markdown, no explanation.`;
+Example: "fmr/lmr/sec is $5000, lmr payable to landlord" → fmrNeeded:"5000", lmrNeeded:"5000", lmrNotes:"payable to landlord", secdepNeeded:"5000"
+Example: "client is Greg Lee, greg@gmail.com" → clients:[{"id":"","first":"Greg","last":"Lee","email":"greg@gmail.com","phone":""}]`;
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -3059,12 +2859,25 @@ function applyAIDeal(deal) {
     if (!deal.name) document.getElementById('df-name').value = deal.addressDisplay;
   }
 
-  // Landlord
+  // Landlord — match existing or auto-create
   if (deal.landlordId) {
     document.getElementById('df-landlord-id').value = deal.landlordId;
     document.getElementById('dd-landlord-input').value = deal.landlordName || '';
   } else if (deal.landlordName) {
-    document.getElementById('dd-landlord-input').value = deal.landlordName;
+    // Try to find by name
+    const existingLandlord = db.landlords.find(l => l.name.toLowerCase() === deal.landlordName.toLowerCase());
+    if (existingLandlord) {
+      document.getElementById('df-landlord-id').value = existingLandlord.id;
+      document.getElementById('dd-landlord-input').value = existingLandlord.name;
+    } else {
+      // Auto-create new landlord
+      const newId = 'lnd_' + Date.now();
+      const newLandlord = { id: newId, name: deal.landlordName, email: '', phone: '', notes: '' };
+      db.landlords.push(newLandlord);
+      saveRecord('landlords', newLandlord);
+      document.getElementById('df-landlord-id').value = newId;
+      document.getElementById('dd-landlord-input').value = deal.landlordName;
+    }
   }
 
   // Agent
@@ -3084,33 +2897,37 @@ function applyAIDeal(deal) {
   sv('df-ncf-needed', deal.ncfNeeded);
   sv('df-lease-received', deal.leaseReceived);
 
-  // Handle new client
-  const nc = deal.newClient;
-  if (nc && (nc.first || nc.last || nc.email)) {
-    // Check if client already exists
-    const existing = db.clients.find(c =>
-      (c.email && nc.email && c.email.toLowerCase() === nc.email.toLowerCase()) ||
-      (`${c.first} ${c.last}`.toLowerCase() === `${nc.first} ${nc.last}`.toLowerCase())
+  // Handle clients array
+  const aiClients = deal.clients || (deal.newClient ? [deal.newClient] : []);
+  selectedClients = []; // reset
+  for (const nc of aiClients) {
+    if (!nc.first && !nc.last && !nc.email) continue;
+    // Try to match existing client
+    let existing = null;
+    if (nc.id) existing = db.clients.find(c => c.id === nc.id);
+    if (!existing && nc.email) existing = db.clients.find(c => (c.email||'').toLowerCase() === nc.email.toLowerCase());
+    if (!existing && (nc.first||nc.last)) existing = db.clients.find(c =>
+      `${c.first} ${c.last}`.toLowerCase() === `${nc.first||''} ${nc.last||''}`.toLowerCase()
     );
     if (existing) {
       if (!selectedClients.find(c=>c.id===existing.id)) {
         selectedClients.push({ id: existing.id, name: `${existing.first} ${existing.last}` });
-        renderSelectedClients();
       }
     } else {
-      // Show a note that client will need to be created
-      const info = document.getElementById('df-additional-info');
-      const clientNote = `[New client to add: ${nc.first} ${nc.last}${nc.email?' - '+nc.email:''}]`;
-      if (info && !info.value.includes(clientNote)) {
-        info.value = (info.value ? info.value + '\n' : '') + clientNote;
-      }
+      // Auto-create the new client
+      const newId = 'cli_' + Date.now() + '_' + Math.random().toString(36).slice(2,5);
+      const newClient = { id: newId, first: nc.first||'', last: nc.last||'', email: nc.email||'', phone: nc.phone||'', notes: '' };
+      db.clients.push(newClient);
+      saveRecord('clients', newClient);
+      selectedClients.push({ id: newId, name: `${newClient.first} ${newClient.last}`.trim() });
     }
   }
+  renderSelectedClients();
 
   // Trigger auto-stage
   autoStage();
 
-  // Flash the form to show it's been filled
+  // Flash the form green to show it's been filled
   const modal = document.querySelector('.modal-body');
   if (modal) {
     modal.style.transition = 'background 0.3s';
