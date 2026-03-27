@@ -885,9 +885,16 @@ th.sortable:hover { color:var(--text); }
       <textarea id="ai-deal-input" style="min-height:120px;" placeholder="e.g. Deal at 123 Main St Boston MA. Client is Greg Lee, greg@gmail.com. FMR/LMR/Sec Dep $5000 each, broker fee $5000. LMR and sec dep payable to landlord. Lease starts Sept 1 2026."></textarea>
     </div>
     <div id="ai-error" style="display:none;background:#fdf0ef;color:#c0392b;border:1px solid #f5c6c2;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:12px;"></div>
-    <div id="ai-loading" style="display:none;text-align:center;padding:16px;color:var(--muted);font-size:13px;">
-      <div class="loading-spinner" style="margin:0 auto 10px;width:24px;height:24px;border-width:2px;"></div>
-      Extracting deal information…
+    <div id="ai-loading" style="display:none;margin-bottom:12px;">
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          <div class="loading-spinner" style="width:18px;height:18px;border-width:2px;flex-shrink:0;margin:0;"></div>
+          <span id="ai-status-text" style="font-size:13px;font-weight:500;color:var(--text);">Connecting to Claude…</span>
+        </div>
+        <div style="background:var(--border);border-radius:4px;height:4px;overflow:hidden;">
+          <div id="ai-progress-bar" style="height:100%;background:#000;border-radius:4px;width:0%;transition:width 0.4s ease;"></div>
+        </div>
+      </div>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;">
       <button class="btn btn-ghost" onclick="closeAIDealModal()">Cancel</button>
@@ -1998,7 +2005,7 @@ async function saveObjModal(){
   }
   if(type==='address'){rec.street1=gf('of-street1');rec.street2=gf('of-street2');rec.city=gf('of-city');rec.state=gf('of-state');rec.zip=gf('of-zip');rec.rent=gf('of-rent');rec.beds=gf('of-beds');rec.baths=gf('of-baths');}
   if(type==='landlord'||type==='agent'){rec.name=gf('of-name');rec.email=gf('of-email');rec.phone=gf('of-phone');rec.notes=gf('of-notes');}
-  const key=type+'s';
+  const key=type==='address'?'addresses':type+'s';
   if(editingObjId) db[key]=db[key].map(x=>x.id===editingObjId?rec:x);
   else db[key].push(rec);
   await saveRecord(key, rec);
@@ -2806,6 +2813,11 @@ function saveAIKey() {
   document.getElementById('ai-key-section').style.display = 'none';
 }
 
+function setAIStatus(text, progress) {
+  document.getElementById('ai-status-text').textContent = text;
+  document.getElementById('ai-progress-bar').style.width = progress + '%';
+}
+
 async function runAIDeal() {
   const apiKey = localStorage.getItem('ai_api_key') || document.getElementById('ai-api-key').value.trim();
   if (!apiKey) { showAIError('Please enter your Anthropic API key first.'); return; }
@@ -2816,8 +2828,10 @@ async function runAIDeal() {
   document.getElementById('ai-error').style.display = 'none';
   document.getElementById('ai-loading').style.display = 'block';
   document.querySelector('#ai-deal-overlay .btn-primary').disabled = true;
+  setAIStatus('Connecting to Claude…', 10);
 
-  // Build context about existing data
+  // Build context
+  setAIStatus('Reading your existing data…', 25);
   const addressList = db.addresses.map(a => `${a.id}: ${addrDisplay(a)}`).join('\n');
   const landlordList = db.landlords.map(l => `${l.id}: ${l.name}`).join('\n');
   const agentList = db.agents.map(a => `${a.id}: ${a.name}`).join('\n');
@@ -2878,6 +2892,7 @@ Example: "broker fee of $2700 collected and delivered" → brokerNeeded:"2700", 
 Example: "client is Greg Lee, greg@gmail.com" → clients:[{"id":"","first":"Greg","last":"Lee","email":"greg@gmail.com","phone":""}]`;
 
   try {
+    setAIStatus('Sending to Claude AI…', 45);
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -2899,12 +2914,16 @@ Example: "client is Greg Lee, greg@gmail.com" → clients:[{"id":"","first":"Gre
       throw new Error(err.error?.message || 'API error ' + res.status);
     }
 
+    setAIStatus('Response received, extracting fields…', 75);
     const data = await res.json();
     const raw = data.content?.[0]?.text || '';
     // Strip any markdown fences just in case
     const clean = raw.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/\s*```$/,'').trim();
+    setAIStatus('Filling in deal form…', 90);
     const deal = JSON.parse(clean);
 
+    setAIStatus('Done!', 100);
+    await new Promise(r => setTimeout(r, 300)); // brief pause to show 100%
     document.getElementById('ai-loading').style.display = 'none';
     document.querySelector('#ai-deal-overlay .btn-primary').disabled = false;
     closeAIDealModal();
