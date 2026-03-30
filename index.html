@@ -247,9 +247,7 @@ textarea { resize: vertical; min-height: 80px; }
 .detail-meta-val { font-size: 14px; font-weight: 500; }
 .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .detail-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); }
-.detail-card-title { font-family: var(--font-head); font-size: 14px; color: var(--accent); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-.card-edit-btn { background: none; border: none; cursor: pointer; color: var(--muted); padding: 2px 4px; border-radius: 4px; line-height: 1; opacity: 0.5; transition: opacity 0.15s, color 0.15s; flex-shrink: 0; }
-.card-edit-btn:hover { opacity: 1; color: var(--accent); }
+.detail-card-title { font-family: var(--font-head); font-size: 14px; color: var(--accent); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 .detail-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 9px; gap: 10px; }
 .detail-key { color: var(--muted); font-size: 12px; flex-shrink: 0; }
 .detail-val { font-size: 13px; text-align: right; font-weight: 500; }
@@ -824,10 +822,11 @@ th.sortable:hover { color:var(--text); }
     </div>
     <!-- PAYMENT TAB -->
     <div id="modal-tab-payment">
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 36px;gap:8px;margin-bottom:8px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1.2fr 36px;gap:8px;margin-bottom:8px;">
         <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);">Client</div>
         <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);">Payment Type</div>
         <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);">Amount</div>
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);">Notes</div>
         <div></div>
       </div>
       <div id="payment-rows"></div>
@@ -1561,23 +1560,23 @@ function openDealDetail(id) {
     </div>
     <div class="detail-grid">
       <div class="detail-card">
-        <div class="detail-card-title">Clients${isAdmin()?`<button class="card-edit-btn" onclick="editDeal('${d.id}')" title="Edit Deal"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`:''}</div>
+        <div class="detail-card-title">Clients</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px;">${clientsHTML||'<span style="color:var(--muted);font-size:13px;">None attached</span>'}</div>
       </div>
       <div class="detail-card">
-        <div class="detail-card-title">Property${isAdmin()?`<button class="card-edit-btn" onclick="editDeal('${d.id}')" title="Edit Deal"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`:''}</div>
+        <div class="detail-card-title">Property</div>
         <div style="font-size:13px;line-height:1.7;">${d.addressDisplay||'—'}</div>
       </div>
-      ${d.additionalInfo?`<div class="detail-card detail-full"><div class="detail-card-title">Additional Information${isAdmin()?`<button class="card-edit-btn" onclick="editDeal('${d.id}')" title="Edit Deal"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`:''}</div><div style="font-size:13px;line-height:1.6;white-space:pre-wrap;">${d.additionalInfo}</div></div>`:''}
+      ${d.additionalInfo?`<div class="detail-card detail-full"><div class="detail-card-title">Additional Information</div><div style="font-size:13px;line-height:1.6;white-space:pre-wrap;">${d.additionalInfo}</div></div>`:''}
       ${parseFloat(d.appfeeNeeded||0)>0?`<div class="detail-card" style="${owes(d.appfeeNeeded,d.appfeeReceived)}">
-        <div class="detail-card-title">App Fee${isAdmin()?`<button class="card-edit-btn" onclick="editDeal('${d.id}')" title="Edit Deal"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`:''}</div>
+        <div class="detail-card-title">App Fee</div>
         <div class="detail-row"><span class="detail-key">Needed</span><span class="detail-val">${formatCur(d.appfeeNeeded)}</span></div>
         <div class="detail-row"><span class="detail-key">Received</span><span class="detail-val">${formatCur(d.appfeeReceived)}</span></div>
         <div class="detail-row"><span class="detail-key">Due</span><span class="detail-val">${formatDate(d.appfeeDue)}</span></div>
         ${d.appfeeNotes?`<div style="margin-top:6px;font-size:12px;color:var(--muted);">${d.appfeeNotes}</div>`:''}
       </div>`:''}
       ${parseFloat(d.fmrNeeded||0)>0?`<div class="detail-card" style="${owes(d.fmrNeeded,d.fmrReceived)}">
-        <div class="detail-card-title">FMR${isAdmin()?`<button class="card-edit-btn" onclick="editDeal('${d.id}')" title="Edit Deal"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`:''}</div>
+        <div class="detail-card-title">FMR</div>
         <div class="detail-row"><span class="detail-key">Needed</span><span class="detail-val">${formatCur(d.fmrNeeded)}</span></div>
         <div class="detail-row"><span class="detail-key">Received</span><span class="detail-val">${formatCur(d.fmrReceived)}</span></div>
         <div class="detail-row"><span class="detail-key">Due</span><span class="detail-val">${formatDate(d.fmrDue)}</span></div>
@@ -1585,14 +1584,14 @@ function openDealDetail(id) {
         ${d.fmrNotes?`<div style="margin-top:6px;font-size:12px;color:var(--muted);">${d.fmrNotes}</div>`:''}
       </div>`:''}
       ${parseFloat(d.brokerNeeded||0)>0?`<div class="detail-card" style="${owes(d.brokerNeeded,d.brokerReceived)}">
-        <div class="detail-card-title">Broker Fee${isAdmin()?`<button class="card-edit-btn" onclick="editDeal('${d.id}')" title="Edit Deal"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`:''}</div>
+        <div class="detail-card-title">Broker Fee</div>
         <div class="detail-row"><span class="detail-key">Needed</span><span class="detail-val">${formatCur(d.brokerNeeded)}</span></div>
         <div class="detail-row"><span class="detail-key">Received</span><span class="detail-val">${formatCur(d.brokerReceived)}</span></div>
         <div class="detail-row"><span class="detail-key">Due</span><span class="detail-val">${formatDate(d.brokerDue)}</span></div>
         ${d.brokerNotes?`<div style="margin-top:6px;font-size:12px;color:var(--muted);">${d.brokerNotes}</div>`:''}
       </div>`:''}
       ${parseFloat(d.lmrNeeded||0)>0?`<div class="detail-card" style="${owes(d.lmrNeeded,d.lmrReceived)}">
-        <div class="detail-card-title">LMR${isAdmin()?`<button class="card-edit-btn" onclick="editDeal('${d.id}')" title="Edit Deal"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`:''}</div>
+        <div class="detail-card-title">LMR</div>
         <div class="detail-row"><span class="detail-key">Needed</span><span class="detail-val">${formatCur(d.lmrNeeded)}</span></div>
         <div class="detail-row"><span class="detail-key">Received</span><span class="detail-val">${formatCur(d.lmrReceived)}</span></div>
         <div class="detail-row"><span class="detail-key">Due</span><span class="detail-val">${formatDate(d.lmrDue)}</span></div>
@@ -1600,7 +1599,7 @@ function openDealDetail(id) {
         ${d.lmrNotes?`<div style="margin-top:6px;font-size:12px;color:var(--muted);">${d.lmrNotes}</div>`:''}
       </div>`:''}
       ${parseFloat(d.secdepNeeded||0)>0?`<div class="detail-card" style="${owes(d.secdepNeeded,d.secdepReceived)}">
-        <div class="detail-card-title">Security Deposit${isAdmin()?`<button class="card-edit-btn" onclick="editDeal('${d.id}')" title="Edit Deal"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`:''}</div>
+        <div class="detail-card-title">Security Deposit</div>
         <div class="detail-row"><span class="detail-key">Needed</span><span class="detail-val">${formatCur(d.secdepNeeded)}</span></div>
         <div class="detail-row"><span class="detail-key">Received</span><span class="detail-val">${formatCur(d.secdepReceived)}</span></div>
         <div class="detail-row"><span class="detail-key">Due</span><span class="detail-val">${formatDate(d.secdepDue)}</span></div>
@@ -1608,7 +1607,7 @@ function openDealDetail(id) {
         ${d.secdepNotes?`<div style="margin-top:6px;font-size:12px;color:var(--muted);">${d.secdepNotes}</div>`:''}
       </div>`:''}
       ${parseFloat(d.keyfeeNeeded||0)>0?`<div class="detail-card" style="${owes(d.keyfeeNeeded,d.keyfeeReceived)}">
-        <div class="detail-card-title">Key Fee${isAdmin()?`<button class="card-edit-btn" onclick="editDeal('${d.id}')" title="Edit Deal"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`:''}</div>
+        <div class="detail-card-title">Key Fee</div>
         <div class="detail-row"><span class="detail-key">Needed</span><span class="detail-val">${formatCur(d.keyfeeNeeded)}</span></div>
         <div class="detail-row"><span class="detail-key">Received</span><span class="detail-val">${formatCur(d.keyfeeReceived)}</span></div>
         <div class="detail-row"><span class="detail-key">Due</span><span class="detail-val">${formatDate(d.keyfeeDue)}</span></div>
@@ -1616,7 +1615,7 @@ function openDealDetail(id) {
         ${d.keyfeeNotes?`<div style="margin-top:6px;font-size:12px;color:var(--muted);">${d.keyfeeNotes}</div>`:''}
       </div>`:''}
       ${parseInt(d.ncfNeeded||0)>0?`<div class="detail-card">
-        <div class="detail-card-title">Notarized Cosigner Forms${isAdmin()?`<button class="card-edit-btn" onclick="editDeal('${d.id}')" title="Edit Deal"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`:''}</div>
+        <div class="detail-card-title">Notarized Cosigner Forms</div>
         <div class="detail-row"><span class="detail-key">Needed</span><span class="detail-val">${d.ncfNeeded||0}</span></div>
         <div class="detail-row"><span class="detail-key">Received</span><span class="detail-val">${d.ncfReceived||0}</span></div>
         <div class="detail-row"><span class="detail-key">Due</span><span class="detail-val">${formatDate(d.ncfDue)}</span></div>
@@ -1626,13 +1625,13 @@ function openDealDetail(id) {
         ${(d.cosigners||[]).length?`<div style="margin-top:10px;">${cosignerHTML}</div>`:''}
       </div>`:''}
       ${(d.leaseReceived||d.leaseDelivered||d.leaseNotes)?`<div class="detail-card">
-        <div class="detail-card-title">Signed Lease${isAdmin()?`<button class="card-edit-btn" onclick="editDeal('${d.id}')" title="Edit Deal"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`:''}</div>
+        <div class="detail-card-title">Signed Lease</div>
         <div class="detail-row"><span class="detail-key">Received?</span><span class="detail-val">${yn(d.leaseReceived)}</span></div>
         <div class="detail-row"><span class="detail-key">Delivered?</span><span class="detail-val">${yn(d.leaseDelivered)}</span></div>
         ${d.leaseNotes?`<div style="font-size:12px;color:var(--muted);margin-top:4px;">${d.leaseNotes}</div>`:''}
       </div>`:''}
       ${(d.paymentLog&&d.paymentLog.length)?`<div class="detail-card detail-full">
-        <div class="detail-card-title">Payments &amp; Paperwork Log${isAdmin()?`<button class="card-edit-btn" onclick="openPaymentModal('${d.id}')" title="Add Payment / Paperwork"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`:''}</div>
+        <div class="detail-card-title">Payments &amp; Paperwork Log</div>
         <table style="width:100%;border-collapse:collapse;font-size:13px;">
           <thead><tr>
             <th style="text-align:left;padding:7px 10px;font-size:11px;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);border-bottom:1px solid var(--border);">Client</th>
@@ -1646,7 +1645,7 @@ function openDealDetail(id) {
             ${[...d.paymentLog].sort((a,b)=>a.date<b.date?1:-1).map((p,i)=>`<tr style="border-bottom:1px solid var(--border);">
               <td style="padding:8px 10px;font-weight:500;">${p.client||'—'}</td>
               <td style="padding:8px 10px;">${p.type||'—'}</td>
-              <td style="padding:8px 10px;color:var(--muted);font-size:12px;">${p.cosigner?`Cosigner: ${p.cosigner}`:p.amount?'':''}</td>
+              <td style="padding:8px 10px;color:var(--muted);font-size:12px;">${p.cosigner?`Cosigner: ${p.cosigner}`:''}${p.cosigner&&p.notes?' · ':''}${p.notes||''}</td>
               <td style="padding:8px 10px;text-align:right;font-family:var(--font-head);">${p.amount?'$'+parseFloat(p.amount).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}</td>
               <td style="padding:8px 10px;text-align:right;color:var(--muted);">${p.date||'—'}</td>
               <td style="padding:8px 6px;text-align:center;"><button onclick="deletePaymentEntry('${d.id}',${i})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;line-height:1;padding:2px 6px;border-radius:4px;" onmouseover="this.style.color='#c0392b';this.style.background='#fdf0ef'" onmouseout="this.style.color='var(--muted)';this.style.background='none'">×</button></td>
@@ -2333,7 +2332,7 @@ function switchPaymentTab(tab) {
 
 // ── PAYMENT ROWS ──
 function addPaymentRow() {
-  paymentRows.push({ id: ++paymentRowId, client: '', type: '', amount: '' });
+  paymentRows.push({ id: ++paymentRowId, client: '', type: '', amount: '', notes: '' });
   renderPaymentRows();
 }
 function removePaymentRow(id) {
@@ -2351,11 +2350,12 @@ function renderPaymentRows() {
     .map(t=>`<option value="${t}">${t}</option>`).join('');
   document.getElementById('payment-rows').innerHTML = paymentRows.map(r => {
     if (singleClient && !r.client) r.client = singleClient;
-    return `<div style="display:grid;grid-template-columns:1fr 1fr 1fr 36px;gap:8px;margin-bottom:8px;align-items:center;">
+    return `<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1.2fr 36px;gap:8px;margin-bottom:8px;align-items:center;">
       <select onchange="updatePaymentRow(${r.id},'client',this.value)" style="padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;">${clientOpts}</select>
       <select onchange="updatePaymentRow(${r.id},'type',this.value)" style="padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;"><option value="">Select type</option>${Object.keys(PAYMENT_TYPE_MAP).filter(t => deal && parseFloat(deal[PAYMENT_NEEDED_MAP[t]]||0) > parseFloat(deal[PAYMENT_TYPE_MAP[t]]||0)).map(t=>`<option value="${t}"${r.type===t?' selected':''}>${t}</option>`).join('')}</select>
       <div style="position:relative;"><span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;pointer-events:none;">$</span>
         <input type="number" step="0.01" placeholder="0.00" value="${r.amount||''}" oninput="updatePaymentRow(${r.id},'amount',this.value)" style="padding:9px 12px 9px 24px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;"></div>
+      <input type="text" placeholder="Optional notes…" value="${r.notes||''}" oninput="updatePaymentRow(${r.id},'notes',this.value)" style="padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;">
       <button onclick="removePaymentRow(${r.id})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:20px;padding:0;line-height:1;">×</button>
     </div>`;
   }).join('');
@@ -2430,7 +2430,7 @@ async function savePayments() {
     for (const r of rows) {
       const field = PAYMENT_TYPE_MAP[r.type];
       if (field) { const cur=parseFloat(deal[field]||0); deal[field]=(cur+parseFloat(r.amount)).toFixed(2); }
-      deal.paymentLog.push({ client:r.client, type:r.type, amount:parseFloat(r.amount).toFixed(2), date:today });
+      deal.paymentLog.push({ client:r.client, type:r.type, amount:parseFloat(r.amount).toFixed(2), date:today, notes:r.notes||'' });
     }
   } else {
     if (!paperworkRows.length) { alert('Please add at least one paperwork row.'); return; }
