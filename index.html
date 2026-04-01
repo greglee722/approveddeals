@@ -449,7 +449,7 @@ th.sortable:hover { color:var(--text); }
 
 <div id="app" style="display:none;">
 <header id="header">
-  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v1.5</span></div>
+  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v1.6</span></div>
   <nav class="header-nav">
     <button class="nav-tab active" data-page="dashboard"  onclick="showPage('dashboard',this)">Dashboard</button>
     <button class="nav-tab alert-tab" data-page="payments" onclick="showPage('payments',this)">Payments &amp; Paperwork</button>
@@ -808,7 +808,7 @@ th.sortable:hover { color:var(--text); }
 <div class="mini-overlay" id="payment-overlay">
   <div class="mini-modal" style="width:700px;max-height:90vh;overflow-y:auto;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-      <div class="mini-title" style="margin-bottom:0;">Receive Payment / Paperwork</div>
+      <div class="mini-title" style="margin-bottom:0;" id="payment-modal-title">Receive Payment / Paperwork</div>
       <button class="modal-close" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);" onclick="closePaymentModal()">×</button>
     </div>
     <!-- TABS -->
@@ -852,7 +852,7 @@ th.sortable:hover { color:var(--text); }
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
       <button class="btn btn-ghost" onclick="closePaymentModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="savePayments()">Save</button>
+      <button class="btn btn-primary" id="payment-modal-save-btn" onclick="savePayments()">Save</button>
     </div>
   </div>
 </div>
@@ -1648,7 +1648,7 @@ function openDealDetail(id) {
               <td style="padding:8px 10px;color:var(--muted);font-size:12px;">${p.cosigner?`Cosigner: ${p.cosigner}`:''}${p.cosigner&&p.notes?' · ':''}${p.notes||''}</td>
               <td style="padding:8px 10px;text-align:right;font-family:var(--font-head);">${p.amount?'$'+parseFloat(p.amount).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}</td>
               <td style="padding:8px 10px;text-align:right;color:var(--muted);">${p.date||'—'}</td>
-              <td style="padding:8px 6px;text-align:center;"><button onclick="deletePaymentEntry('${d.id}',${i})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;line-height:1;padding:2px 6px;border-radius:4px;" onmouseover="this.style.color='#c0392b';this.style.background='#fdf0ef'" onmouseout="this.style.color='var(--muted)';this.style.background='none'">×</button></td>
+              <td style="padding:8px 6px;text-align:center;white-space:nowrap;">${isAdmin()?`<button onclick="editPaymentEntry('${d.id}',${i})" title="Edit entry" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:2px 5px;border-radius:4px;line-height:1;margin-right:2px;" onmouseover="this.style.color='#000';this.style.background='var(--surface2)'" onmouseout="this.style.color='var(--muted)';this.style.background='none'"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`:''}<button onclick="deletePaymentEntry('${d.id}',${i})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;line-height:1;padding:2px 6px;border-radius:4px;" onmouseover="this.style.color='#c0392b';this.style.background='#fdf0ef'" onmouseout="this.style.color='var(--muted)';this.style.background='none'">×</button></td>
             </tr>`).join('')}
           </tbody>
         </table>
@@ -2290,6 +2290,7 @@ let paymentRows = [];
 let paperworkRows = [];
 let paymentRowId = 0;
 let activePaymentTab = 'payment';
+let editingPaymentEntry = null; // { origIndex, origEntry } when editing an existing log entry
 
 const PAYMENT_TYPE_MAP = {
   'App Fee':          'appfeeReceived',
@@ -2312,6 +2313,9 @@ function openPaymentModal(dealId) {
   paymentDealId = dealId;
   paymentRows = []; paperworkRows = []; paymentRowId = 0;
   activePaymentTab = 'payment';
+  editingPaymentEntry = null;
+  document.getElementById('payment-modal-save-btn').textContent = 'Save';
+  document.getElementById('payment-modal-title').textContent = 'Log Payment or Paperwork';
   addPaymentRow();
   switchPaymentTab('payment');
   document.getElementById('payment-overlay').classList.add('open');
@@ -2319,6 +2323,7 @@ function openPaymentModal(dealId) {
 function closePaymentModal() {
   document.getElementById('payment-overlay').classList.remove('open');
   paymentDealId = null; paymentRows = []; paperworkRows = [];
+  editingPaymentEntry = null;
 }
 function switchPaymentTab(tab) {
   activePaymentTab = tab;
@@ -2350,9 +2355,16 @@ function renderPaymentRows() {
     .map(t=>`<option value="${t}">${t}</option>`).join('');
   document.getElementById('payment-rows').innerHTML = paymentRows.map(r => {
     if (singleClient && !r.client) r.client = singleClient;
+    // In edit mode, show all types; otherwise only show types with remaining balance
+    const typeKeys = editingPaymentEntry
+      ? Object.keys(PAYMENT_TYPE_MAP)
+      : Object.keys(PAYMENT_TYPE_MAP).filter(t => deal && parseFloat(deal[PAYMENT_NEEDED_MAP[t]]||0) > parseFloat(deal[PAYMENT_TYPE_MAP[t]]||0));
+    const clientSelectOpts = clients.length === 1
+      ? `<option value="${clients[0].name}" selected>${clients[0].name}</option>`
+      : `<option value="">Select client</option>` + clients.map(c=>`<option value="${c.name}"${r.client===c.name?' selected':''}>${c.name}</option>`).join('');
     return `<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 36px;gap:8px;margin-bottom:8px;align-items:center;">
-      <select onchange="updatePaymentRow(${r.id},'client',this.value)" style="padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;">${clientOpts}</select>
-      <select onchange="updatePaymentRow(${r.id},'type',this.value)" style="padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;"><option value="">Select type</option>${Object.keys(PAYMENT_TYPE_MAP).filter(t => deal && parseFloat(deal[PAYMENT_NEEDED_MAP[t]]||0) > parseFloat(deal[PAYMENT_TYPE_MAP[t]]||0)).map(t=>`<option value="${t}"${r.type===t?' selected':''}>${t}</option>`).join('')}</select>
+      <select onchange="updatePaymentRow(${r.id},'client',this.value)" style="padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;">${clientSelectOpts}</select>
+      <select onchange="updatePaymentRow(${r.id},'type',this.value)" style="padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;"><option value="">Select type</option>${typeKeys.map(t=>`<option value="${t}"${r.type===t?' selected':''}>${t}</option>`).join('')}</select>
       <div style="position:relative;"><span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;pointer-events:none;">$</span>
         <input type="number" step="0.01" placeholder="0.00" value="${r.amount||''}" oninput="updatePaymentRow(${r.id},'amount',this.value)" style="padding:9px 12px 9px 24px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;"></div>
       <input type="text" placeholder="Notes (optional)" value="${r.notes||''}" oninput="updatePaymentRow(${r.id},'notes',this.value)" style="padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;">
@@ -2417,6 +2429,28 @@ async function deletePaymentEntry(dealId, index) {
   applyFilters(); renderStats();
 }
 
+function editPaymentEntry(dealId, index) {
+  const deal = db.deals.find(d=>d.id===dealId);
+  if (!deal||!deal.paymentLog) return;
+  const sorted = [...deal.paymentLog].sort((a,b)=>a.date<b.date?1:-1);
+  const entry = sorted[index];
+  if (!entry) return;
+  const origIdx = deal.paymentLog.findIndex(p=>p.client===entry.client&&p.type===entry.type&&p.amount===entry.amount&&p.date===entry.date);
+  // Open modal in edit mode
+  paymentDealId = dealId;
+  paymentRows = []; paperworkRows = []; paymentRowId = 0;
+  activePaymentTab = 'payment';
+  editingPaymentEntry = { origIdx, entry };
+  // Pre-fill a single row with the existing entry
+  paymentRows.push({ id: ++paymentRowId, client: entry.client||'', type: entry.type||'', amount: entry.amount||'', notes: entry.notes||'' });
+  switchPaymentTab('payment');
+  // Update modal title and save button to reflect edit mode
+  document.getElementById('payment-modal-title').textContent = 'Edit Payment Entry';
+  document.getElementById('payment-modal-save-btn').textContent = 'Update';
+  renderPaymentRows();
+  document.getElementById('payment-overlay').classList.add('open');
+}
+
 async function savePayments() {
   const deal = db.deals.find(d=>d.id===paymentDealId);
   if (!deal) return;
@@ -2427,10 +2461,25 @@ async function savePayments() {
     const rows = paymentRows.filter(r=>r.type && parseFloat(r.amount)>0);
     if (!rows.length) { alert('Please add at least one payment with a type and amount.'); return; }
     for (const r of rows) { if (!r.client) { alert('Please select a client for each row.'); return; } }
-    for (const r of rows) {
-      const field = PAYMENT_TYPE_MAP[r.type];
-      if (field) { const cur=parseFloat(deal[field]||0); deal[field]=(cur+parseFloat(r.amount)).toFixed(2); }
-      deal.paymentLog.push({ client:r.client, type:r.type, amount:parseFloat(r.amount).toFixed(2), date:today, notes:r.notes||'' });
+
+    if (editingPaymentEntry) {
+      // Edit mode: replace existing entry, adjust amounts
+      const { origIdx, entry } = editingPaymentEntry;
+      const r = rows[0];
+      // Reverse old amount
+      const oldField = PAYMENT_TYPE_MAP[entry.type];
+      if (oldField) { const cur=parseFloat(deal[oldField]||0); deal[oldField]=Math.max(0,cur-parseFloat(entry.amount||0)).toFixed(2); }
+      // Apply new amount
+      const newField = PAYMENT_TYPE_MAP[r.type];
+      if (newField) { const cur=parseFloat(deal[newField]||0); deal[newField]=(cur+parseFloat(r.amount)).toFixed(2); }
+      // Replace in log
+      deal.paymentLog[origIdx] = { client:r.client, type:r.type, amount:parseFloat(r.amount).toFixed(2), date:entry.date||today, notes:r.notes||'' };
+    } else {
+      for (const r of rows) {
+        const field = PAYMENT_TYPE_MAP[r.type];
+        if (field) { const cur=parseFloat(deal[field]||0); deal[field]=(cur+parseFloat(r.amount)).toFixed(2); }
+        deal.paymentLog.push({ client:r.client, type:r.type, amount:parseFloat(r.amount).toFixed(2), date:today, notes:r.notes||'' });
+      }
     }
   } else {
     if (!paperworkRows.length) { alert('Please add at least one paperwork row.'); return; }
