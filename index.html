@@ -449,7 +449,7 @@ th.sortable:hover { color:var(--text); }
 
 <div id="app" style="display:none;">
 <header id="header">
-  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v1.9</span></div>
+  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v2.0</span></div>
   <nav class="header-nav">
     <button class="nav-tab active" data-page="dashboard"  onclick="showPage('dashboard',this)">Dashboard</button>
     <button class="nav-tab alert-tab" data-page="payments" onclick="showPage('payments',this)">Payments &amp; Paperwork</button>
@@ -546,8 +546,13 @@ th.sortable:hover { color:var(--text); }
         </div>
         <div style="overflow-x:auto;"><table>
           <thead><tr>
-            <th onclick="toggleLeaseSort()" style="cursor:pointer;user-select:none;"><span style="display:inline-flex;align-items:center;gap:5px;">Lease Start<span id="lease-sort-icon" style="display:inline-flex;flex-direction:column;gap:1px;opacity:0.4;"><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 0L8 5H0z"/></svg><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 5L0 0H8z"/></svg></span></span></th>
-            <th>Deal Name</th><th>Landlord</th><th>Agent</th><th>Stage</th><th>Payments Outstanding</th><th></th>
+            <th onclick="toggleSort('leaseStart')" style="cursor:pointer;user-select:none;"><span style="display:inline-flex;align-items:center;gap:5px;">Lease Start<span id="sort-icon-leaseStart" style="display:inline-flex;flex-direction:column;gap:1px;opacity:0.4;"><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 0L8 5H0z"/></svg><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 5L0 0H8z"/></svg></span></span></th>
+            <th onclick="toggleSort('name')" style="cursor:pointer;user-select:none;"><span style="display:inline-flex;align-items:center;gap:5px;">Deal Name<span id="sort-icon-name" style="display:inline-flex;flex-direction:column;gap:1px;opacity:0.4;"><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 0L8 5H0z"/></svg><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 5L0 0H8z"/></svg></span></span></th>
+            <th onclick="toggleSort('landlord')" style="cursor:pointer;user-select:none;"><span style="display:inline-flex;align-items:center;gap:5px;">Landlord<span id="sort-icon-landlord" style="display:inline-flex;flex-direction:column;gap:1px;opacity:0.4;"><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 0L8 5H0z"/></svg><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 5L0 0H8z"/></svg></span></span></th>
+            <th onclick="toggleSort('agent')" style="cursor:pointer;user-select:none;"><span style="display:inline-flex;align-items:center;gap:5px;">Agent<span id="sort-icon-agent" style="display:inline-flex;flex-direction:column;gap:1px;opacity:0.4;"><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 0L8 5H0z"/></svg><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 5L0 0H8z"/></svg></span></span></th>
+            <th onclick="toggleSort('stage')" style="cursor:pointer;user-select:none;"><span style="display:inline-flex;align-items:center;gap:5px;">Stage<span id="sort-icon-stage" style="display:inline-flex;flex-direction:column;gap:1px;opacity:0.4;"><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 0L8 5H0z"/></svg><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 5L0 0H8z"/></svg></span></span></th>
+            <th onclick="toggleSort('payments')" style="cursor:pointer;user-select:none;"><span style="display:inline-flex;align-items:center;gap:5px;">Payments Outstanding<span id="sort-icon-payments" style="display:inline-flex;flex-direction:column;gap:1px;opacity:0.4;"><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 0L8 5H0z"/></svg><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 5L0 0H8z"/></svg></span></span></th>
+            <th></th>
           </tr></thead>
           <tbody id="deals-tbody"></tbody>
         </table></div>
@@ -1398,8 +1403,20 @@ function applyFilters() {
     }
     return true;
   });
-  if (leaseSortDir==='asc') rows.sort((a,b)=>(a.leaseStart||'')<(b.leaseStart||'')?-1:1);
-  else if (leaseSortDir==='desc') rows.sort((a,b)=>(a.leaseStart||'')>(b.leaseStart||'')?-1:1);
+  if (sortCol && sortDir) {
+    rows.sort((a,b)=>{
+      let av, bv;
+      if (sortCol==='leaseStart') { av=a.leaseStart||''; bv=b.leaseStart||''; }
+      else if (sortCol==='name') { av=(a.name||'').toLowerCase(); bv=(b.name||'').toLowerCase(); }
+      else if (sortCol==='landlord') { av=(a.landlord||'').toLowerCase(); bv=(b.landlord||'').toLowerCase(); }
+      else if (sortCol==='agent') { av=(a.agent||'').toLowerCase(); bv=(b.agent||'').toLowerCase(); }
+      else if (sortCol==='stage') { av=a.stage??0; bv=b.stage??0; }
+      else if (sortCol==='payments') { av=getPaymentIssues(a).length; bv=getPaymentIssues(b).length; }
+      if (av<bv) return sortDir==='asc'?-1:1;
+      if (av>bv) return sortDir==='asc'?1:-1;
+      return 0;
+    });
+  }
   const liveCount = db.deals.filter(d=>d.status!=='archived').length;
   let heading = 'All Deals';
   if (activeStatFilter==='broker') heading = 'Deals Missing Broker Fee';
@@ -3188,15 +3205,32 @@ async function applyAIDeal(deal) {
 
 // LEASE SORT
 // ══════════════════════════════════════
-let leaseSortDir = null;
-function toggleLeaseSort() {
-  leaseSortDir = leaseSortDir==='asc'?'desc':leaseSortDir==='desc'?null:'asc';
-  const icon = document.getElementById('lease-sort-icon');
-  if (icon) {
-    if (leaseSortDir==='asc') { icon.style.opacity='1'; icon.innerHTML='<svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 0L8 5H0z"/></svg><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor" style="opacity:0.25"><path d="M4 5L0 0H8z"/></svg>'; }
-    else if (leaseSortDir==='desc') { icon.style.opacity='1'; icon.innerHTML='<svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor" style="opacity:0.25"><path d="M4 0L8 5H0z"/></svg><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 5L0 0H8z"/></svg>'; }
-    else { icon.style.opacity='0.4'; icon.innerHTML='<svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 0L8 5H0z"/></svg><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 5L0 0H8z"/></svg>'; }
+let sortCol = null;
+let sortDir = null;
+const SORT_COLS = ['leaseStart','name','landlord','agent','stage','payments'];
+const SORT_BOTH = '<svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 0L8 5H0z"/></svg><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 5L0 0H8z"/></svg>';
+const SORT_ASC  = '<svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 0L8 5H0z"/></svg><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor" style="opacity:0.25"><path d="M4 5L0 0H8z"/></svg>';
+const SORT_DESC = '<svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor" style="opacity:0.25"><path d="M4 0L8 5H0z"/></svg><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 5L0 0H8z"/></svg>';
+
+function toggleSort(col) {
+  if (sortCol === col) {
+    sortDir = sortDir==='asc'?'desc':sortDir==='desc'?null:'asc';
+    if (!sortDir) sortCol = null;
+  } else {
+    sortCol = col;
+    sortDir = 'asc';
   }
+  SORT_COLS.forEach(c => {
+    const icon = document.getElementById('sort-icon-'+c);
+    if (!icon) return;
+    if (c === sortCol) {
+      icon.style.opacity = '1';
+      icon.innerHTML = sortDir==='asc' ? SORT_ASC : SORT_DESC;
+    } else {
+      icon.style.opacity = '0.4';
+      icon.innerHTML = SORT_BOTH;
+    }
+  });
   applyFilters();
 }
 
