@@ -449,7 +449,7 @@ th.sortable:hover { color:var(--text); }
 
 <div id="app" style="display:none;">
 <header id="header">
-  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v1.7</span></div>
+  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v1.9</span></div>
   <nav class="header-nav">
     <button class="nav-tab active" data-page="dashboard"  onclick="showPage('dashboard',this)">Dashboard</button>
     <button class="nav-tab alert-tab" data-page="payments" onclick="showPage('payments',this)">Payments &amp; Paperwork</button>
@@ -2997,19 +2997,26 @@ Return this exact JSON structure:
     { "id": "existing client id if matched else ''", "first": "", "last": "", "email": "", "phone": "" }
   ],
   "appfeeNeeded": "0", "appfeeReceived": "0", "appfeeNotes": "",
-  "fmrNeeded": "0", "fmrReceived": "0", "fmrNotes": "special instructions only e.g. payable to X",
+  "fmrNeeded": "0", "fmrReceived": "0", "fmrDelivered": "", "fmrNotes": "special instructions only e.g. payable to X",
   "brokerNeeded": "0", "brokerReceived": "0", "brokerNotes": "special instructions only",
-  "lmrNeeded": "0", "lmrReceived": "0", "lmrNotes": "special instructions only",
-  "secdepNeeded": "0", "secdepReceived": "0", "secdepNotes": "special instructions only",
-  "keyfeeNeeded": "0", "keyfeeReceived": "0", "keyfeeNotes": "special instructions only",
-  "ncfNeeded": "0",
+  "lmrNeeded": "0", "lmrReceived": "0", "lmrDelivered": "", "lmrNotes": "special instructions only",
+  "secdepNeeded": "0", "secdepReceived": "0", "secdepDelivered": "", "secdepNotes": "special instructions only",
+  "keyfeeNeeded": "0", "keyfeeReceived": "0", "keyfeeDelivered": "", "keyfeeNotes": "special instructions only",
+  "ncfNeeded": "0", "ncfDelivered": "",
   "ncfDue": "",
   "leaseStart": "YYYY-MM-DD or ''",
-  "leaseReceived": ""
+  "leaseReceived": "", "leaseDelivered": ""
 }
+DELIVERED FIELD RULES:
+- Set Delivered to "Yes" when the description says the payment was "delivered", "sent to landlord", "sent over", or similar delivery language.
+- "collected" alone does NOT mean delivered — only set Delivered if delivery to the landlord/recipient is explicitly stated.
+- "collected and delivered" → set both Received = Needed AND Delivered = "Yes"
+- Broker fee has no Delivered field — if broker is delivered, just note it in brokerNotes.
 
 Example: "fmr/lmr/sec is $5000, lmr payable to landlord" → fmrNeeded:"5000", lmrNeeded:"5000", lmrNotes:"payable to landlord", secdepNeeded:"5000"
-Example: "broker fee of $2700 collected and delivered" → brokerNeeded:"2700", brokerReceived:"2700", brokerNotes:"collected and delivered"
+Example: "security deposit $1750 collected and delivered" → secdepNeeded:"1750", secdepReceived:"1750", secdepDelivered:"Yes"
+Example: "broker fee of $4900 collected" → brokerNeeded:"4900", brokerReceived:"4900", brokerNotes:""
+Example: "fmr collected and delivered, lmr collected" → fmrReceived:fmrNeeded, fmrDelivered:"Yes", lmrReceived:lmrNeeded, lmrDelivered:""
 Example: "client is Greg Lee, greg@gmail.com" → clients:[{"id":"","first":"Greg","last":"Lee","email":"greg@gmail.com","phone":""}]`;
 
   try {
@@ -3116,6 +3123,8 @@ async function applyAIDeal(deal) {
 
   // Payment fields — set needed AND received if collected
   const payments = ['appfee','fmr','broker','lmr','secdep','keyfee'];
+  // Payments that have a Delivered dropdown (broker and appfee do not)
+  const deliverablePayments = ['fmr','lmr','secdep','keyfee'];
   payments.forEach(p => {
     sv('df-'+p+'-needed', deal[p+'Needed']);
     sv('df-'+p+'-notes', deal[p+'Notes']);
@@ -3127,10 +3136,16 @@ async function applyAIDeal(deal) {
         (notes.includes('collected') || notes.includes('received') || notes.includes('paid'))) {
       sv('df-'+p+'-received', deal[p+'Needed']);
     }
+    // Set Delivered dropdown if applicable
+    if (deliverablePayments.includes(p) && deal[p+'Delivered']) {
+      sv('df-'+p+'-delivered', deal[p+'Delivered']);
+    }
   });
   sv('df-ncf-needed', deal.ncfNeeded);
   sv('df-ncf-due', deal.ncfDue);
+  if (deal.ncfDelivered) sv('df-ncf-delivered', deal.ncfDelivered);
   sv('df-lease-received', deal.leaseReceived);
+  if (deal.leaseDelivered) sv('df-lease-delivered', deal.leaseDelivered);
 
   // Handle clients array
   const aiClients = deal.clients || (deal.newClient ? [deal.newClient] : []);
