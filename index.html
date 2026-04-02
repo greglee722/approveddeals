@@ -449,7 +449,7 @@ th.sortable:hover { color:var(--text); }
 
 <div id="app" style="display:none;">
 <header id="header">
-  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v1.6</span></div>
+  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v1.7</span></div>
   <nav class="header-nav">
     <button class="nav-tab active" data-page="dashboard"  onclick="showPage('dashboard',this)">Dashboard</button>
     <button class="nav-tab alert-tab" data-page="payments" onclick="showPage('payments',this)">Payments &amp; Paperwork</button>
@@ -824,10 +824,12 @@ th.sortable:hover { color:var(--text); }
     </div>
     <!-- PAYMENT TAB -->
     <div id="modal-tab-payment">
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 36px;gap:8px;margin-bottom:8px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 36px 36px;gap:8px;margin-bottom:8px;">
         <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);">Client</div>
         <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);">Payment Type</div>
         <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);">Amount</div>
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);">Notes</div>
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);">📎</div>
         <div></div>
       </div>
       <div id="payment-rows"></div>
@@ -859,6 +861,9 @@ th.sortable:hover { color:var(--text); }
 
 
 
+
+<!-- HIDDEN FILE INPUT FOR PAYMENT IMAGE UPLOAD -->
+<input type="file" id="payment-image-input" accept="image/*" style="display:none;" onchange="handlePaymentImageFile(this)">
 
 <!-- AI DEAL MODAL -->
 <div class="mini-overlay" id="ai-deal-overlay">
@@ -925,7 +930,7 @@ th.sortable:hover { color:var(--text); }
 // ════════════════════════════════════
 const CLIENT_ID      = '808344707268-kdj9p87cgkp36nk9k1ju9s5h6aap3te0.apps.googleusercontent.com';
 const SPREADSHEET_ID = '1sJMskh19goukAZ_-lCgb7ufsZb31VywyLsa9zeGtI_s';
-const SCOPES         = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.email';
+const SCOPES         = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/drive.file';
 const SHEETS_BASE    = 'https://sheets.googleapis.com/v4/spreadsheets/' + SPREADSHEET_ID;
 
 let accessToken  = null;
@@ -1645,7 +1650,7 @@ function openDealDetail(id) {
             ${[...d.paymentLog].sort((a,b)=>a.date<b.date?1:-1).map((p,i)=>`<tr style="border-bottom:1px solid var(--border);">
               <td style="padding:8px 10px;font-weight:500;">${p.client||'—'}</td>
               <td style="padding:8px 10px;">${p.type||'—'}</td>
-              <td style="padding:8px 10px;color:var(--muted);font-size:12px;">${p.cosigner?`Cosigner: ${p.cosigner}`:''}${p.cosigner&&p.notes?' · ':''}${p.notes||''}</td>
+              <td style="padding:8px 10px;color:var(--muted);font-size:12px;">${p.cosigner?'Cosigner: '+p.cosigner:''}${p.cosigner&&p.notes?' · ':''}${p.notes||''}${p.imageUrl?' <a href="'+p.imageUrl+'" target="_blank" style="display:inline-flex;align-items:center;gap:3px;color:#000;font-weight:500;font-size:11px;text-decoration:none;background:var(--surface2);border:1px solid var(--border);padding:1px 7px;border-radius:4px;margin-left:4px;" onmouseover=\'this.style.background=\"var(--border)\"\' onmouseout=\'this.style.background=\"var(--surface2)\"\'>📎 View</a>':''}</td>
               <td style="padding:8px 10px;text-align:right;font-family:var(--font-head);">${p.amount?'$'+parseFloat(p.amount).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}</td>
               <td style="padding:8px 10px;text-align:right;color:var(--muted);">${p.date||'—'}</td>
               <td style="padding:8px 6px;text-align:center;white-space:nowrap;">${isAdmin()?`<button onclick="editPaymentEntry('${d.id}',${i})" title="Edit entry" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:2px 5px;border-radius:4px;line-height:1;margin-right:2px;" onmouseover="this.style.color='#000';this.style.background='var(--surface2)'" onmouseout="this.style.color='var(--muted)';this.style.background='none'"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`:''}<button onclick="deletePaymentEntry('${d.id}',${i})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;line-height:1;padding:2px 6px;border-radius:4px;" onmouseover="this.style.color='#c0392b';this.style.background='#fdf0ef'" onmouseout="this.style.color='var(--muted)';this.style.background='none'">×</button></td>
@@ -2337,7 +2342,7 @@ function switchPaymentTab(tab) {
 
 // ── PAYMENT ROWS ──
 function addPaymentRow() {
-  paymentRows.push({ id: ++paymentRowId, client: '', type: '', amount: '', notes: '' });
+  paymentRows.push({ id: ++paymentRowId, client: '', type: '', amount: '', notes: '', imageUrl: '' });
   renderPaymentRows();
 }
 function removePaymentRow(id) {
@@ -2362,18 +2367,83 @@ function renderPaymentRows() {
     const clientSelectOpts = clients.length === 1
       ? `<option value="${clients[0].name}" selected>${clients[0].name}</option>`
       : `<option value="">Select client</option>` + clients.map(c=>`<option value="${c.name}"${r.client===c.name?' selected':''}>${c.name}</option>`).join('');
-    return `<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 36px;gap:8px;margin-bottom:8px;align-items:center;">
+    const uploadBtn = r.imageUrl
+      ? `<a href="${r.imageUrl}" target="_blank" title="View uploaded image" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:36px;background:var(--success);color:#fff;border-radius:7px;text-decoration:none;font-size:13px;">✓</a>`
+      : `<button onclick="triggerPaymentImageUpload(${r.id})" title="Attach photo" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:36px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;cursor:pointer;color:var(--muted);padding:0;" onmouseover="this.style.borderColor='#000';this.style.color='#000'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>`;
+    return `<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 36px 36px;gap:8px;margin-bottom:8px;align-items:center;">
       <select onchange="updatePaymentRow(${r.id},'client',this.value)" style="padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;">${clientSelectOpts}</select>
       <select onchange="updatePaymentRow(${r.id},'type',this.value)" style="padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;"><option value="">Select type</option>${typeKeys.map(t=>`<option value="${t}"${r.type===t?' selected':''}>${t}</option>`).join('')}</select>
       <div style="position:relative;"><span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;pointer-events:none;">$</span>
         <input type="number" step="0.01" placeholder="0.00" value="${r.amount||''}" oninput="updatePaymentRow(${r.id},'amount',this.value)" style="padding:9px 12px 9px 24px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;"></div>
       <input type="text" placeholder="Notes (optional)" value="${r.notes||''}" oninput="updatePaymentRow(${r.id},'notes',this.value)" style="padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;">
+      ${uploadBtn}
       <button onclick="removePaymentRow(${r.id})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:20px;padding:0;line-height:1;">×</button>
     </div>`;
   }).join('');
 }
 function updatePaymentRow(id, field, val) {
   const r = paymentRows.find(r=>r.id===id); if(r) r[field]=val;
+}
+
+// ── PAYMENT IMAGE UPLOAD ──
+let _uploadingRowId = null;
+
+function triggerPaymentImageUpload(rowId) {
+  _uploadingRowId = rowId;
+  document.getElementById('payment-image-input').value = '';
+  document.getElementById('payment-image-input').click();
+}
+
+async function handlePaymentImageFile(input) {
+  const file = input.files[0];
+  if (!file || !_uploadingRowId) return;
+  const row = paymentRows.find(r => r.id === _uploadingRowId);
+  if (!row) return;
+
+  // Show uploading state on button
+  const btn = document.querySelector(`button[onclick="triggerPaymentImageUpload(${_uploadingRowId})"]`);
+  if (btn) { btn.innerHTML = '…'; btn.disabled = true; }
+
+  try {
+    const imageUrl = await uploadFileToDrive(file);
+    row.imageUrl = imageUrl;
+    renderPaymentRows();
+  } catch(e) {
+    alert('Upload failed: ' + e.message);
+    renderPaymentRows();
+  }
+  _uploadingRowId = null;
+}
+
+async function uploadFileToDrive(file) {
+  const token = accessToken;
+  if (!token) throw new Error('Not signed in');
+
+  const metadata = { name: file.name, mimeType: file.type };
+  const form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+  form.append('file', file);
+
+  const uploadRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token },
+    body: form
+  });
+  if (!uploadRes.ok) {
+    const err = await uploadRes.json();
+    throw new Error(err.error?.message || 'Upload failed');
+  }
+  const data = await uploadRes.json();
+  const fileId = data.id;
+
+  // Make file viewable by anyone with the link
+  await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '/permissions', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role: 'reader', type: 'anyone' })
+  });
+
+  return 'https://drive.google.com/file/d/' + fileId + '/view';
 }
 
 // ── PAPERWORK ROWS ──
@@ -2442,7 +2512,7 @@ function editPaymentEntry(dealId, index) {
   activePaymentTab = 'payment';
   editingPaymentEntry = { origIdx, entry };
   // Pre-fill a single row with the existing entry
-  paymentRows.push({ id: ++paymentRowId, client: entry.client||'', type: entry.type||'', amount: entry.amount||'', notes: entry.notes||'' });
+  paymentRows.push({ id: ++paymentRowId, client: entry.client||'', type: entry.type||'', amount: entry.amount||'', notes: entry.notes||'', imageUrl: entry.imageUrl||'' });
   switchPaymentTab('payment');
   // Update modal title and save button to reflect edit mode
   document.getElementById('payment-modal-title').textContent = 'Edit Payment Entry';
@@ -2473,12 +2543,12 @@ async function savePayments() {
       const newField = PAYMENT_TYPE_MAP[r.type];
       if (newField) { const cur=parseFloat(deal[newField]||0); deal[newField]=(cur+parseFloat(r.amount)).toFixed(2); }
       // Replace in log
-      deal.paymentLog[origIdx] = { client:r.client, type:r.type, amount:parseFloat(r.amount).toFixed(2), date:entry.date||today, notes:r.notes||'' };
+      deal.paymentLog[origIdx] = { client:r.client, type:r.type, amount:parseFloat(r.amount).toFixed(2), date:entry.date||today, notes:r.notes||'', imageUrl:r.imageUrl||entry.imageUrl||'' };
     } else {
       for (const r of rows) {
         const field = PAYMENT_TYPE_MAP[r.type];
         if (field) { const cur=parseFloat(deal[field]||0); deal[field]=(cur+parseFloat(r.amount)).toFixed(2); }
-        deal.paymentLog.push({ client:r.client, type:r.type, amount:parseFloat(r.amount).toFixed(2), date:today, notes:r.notes||'' });
+        deal.paymentLog.push({ client:r.client, type:r.type, amount:parseFloat(r.amount).toFixed(2), date:today, notes:r.notes||'', imageUrl:r.imageUrl||'' });
       }
     }
   } else {
