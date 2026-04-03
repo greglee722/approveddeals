@@ -493,7 +493,7 @@ th.sortable:hover { color:var(--text); }
 
 <div id="app" style="display:none;">
 <header id="header">
-  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v2.1</span></div>
+  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v2.2</span></div>
   <nav class="header-nav">
     <button class="nav-tab active" data-page="dashboard"  onclick="showPage('dashboard',this)">Dashboard</button>
     <button class="nav-tab alert-tab" data-page="payments" onclick="showPage('payments',this)">Payments &amp; Paperwork</button>
@@ -889,10 +889,12 @@ th.sortable:hover { color:var(--text); }
     </div>
     <!-- PAPERWORK TAB -->
     <div id="modal-tab-paperwork" style="display:none;">
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 36px;gap:8px;margin-bottom:8px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 36px 36px;gap:8px;margin-bottom:8px;">
         <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);">Client</div>
         <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);">Paperwork</div>
         <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);">Cosigner</div>
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);">Notes</div>
+        <div></div>
         <div></div>
       </div>
       <div id="paperwork-rows"></div>
@@ -2483,9 +2485,18 @@ function updatePaymentRow(id, field, val) {
 
 // ── PAYMENT IMAGE UPLOAD ──
 let _uploadingRowId = null;
+let _uploadingRowType = 'payment'; // 'payment' or 'paperwork'
 
 function triggerPaymentImageUpload(rowId) {
   _uploadingRowId = rowId;
+  _uploadingRowType = 'payment';
+  document.getElementById('payment-image-input').value = '';
+  document.getElementById('payment-image-input').click();
+}
+
+function triggerPaperworkImageUpload(rowId) {
+  _uploadingRowId = rowId;
+  _uploadingRowType = 'paperwork';
   document.getElementById('payment-image-input').value = '';
   document.getElementById('payment-image-input').click();
 }
@@ -2493,20 +2504,25 @@ function triggerPaymentImageUpload(rowId) {
 async function handlePaymentImageFile(input) {
   const file = input.files[0];
   if (!file || !_uploadingRowId) return;
-  const row = paymentRows.find(r => r.id === _uploadingRowId);
+  const row = _uploadingRowType === 'paperwork'
+    ? paperworkRows.find(r => r.id === _uploadingRowId)
+    : paymentRows.find(r => r.id === _uploadingRowId);
   if (!row) return;
 
   // Show uploading state on button
-  const btn = document.querySelector(`button[onclick="triggerPaymentImageUpload(${_uploadingRowId})"]`);
+  const selector = _uploadingRowType === 'paperwork'
+    ? `button[onclick="triggerPaperworkImageUpload(${_uploadingRowId})"]`
+    : `button[onclick="triggerPaymentImageUpload(${_uploadingRowId})"]`;
+  const btn = document.querySelector(selector);
   if (btn) { btn.innerHTML = '…'; btn.disabled = true; }
 
   try {
     const imageUrl = await uploadFileToDrive(file);
     row.imageUrl = imageUrl;
-    renderPaymentRows();
+    if (_uploadingRowType === 'paperwork') renderPaperworkRows(); else renderPaymentRows();
   } catch(e) {
     alert('Upload failed: ' + e.message);
-    renderPaymentRows();
+    if (_uploadingRowType === 'paperwork') renderPaperworkRows(); else renderPaymentRows();
   }
   _uploadingRowId = null;
 }
@@ -2544,7 +2560,7 @@ async function uploadFileToDrive(file) {
 
 // ── PAPERWORK ROWS ──
 function addPaperworkRow() {
-  paperworkRows.push({ id: ++paymentRowId, client: '', cosigner: '' });
+  paperworkRows.push({ id: ++paymentRowId, client: '', cosigner: '', notes: '', imageUrl: '' });
   renderPaperworkRows();
 }
 function removePaperworkRow(id) {
@@ -2565,12 +2581,17 @@ function renderPaperworkRows() {
     const clientOpts = clients.length===1
       ? `<option value="${clients[0].name}">${clients[0].name}</option>`
       : `<option value="">Select client</option>` + clients.map(c=>`<option value="${c.name}" ${r.client===c.name?'selected':''}>${c.name}</option>`).join('');
-    return `<div style="display:grid;grid-template-columns:1fr 1fr 1fr 36px;gap:8px;margin-bottom:8px;align-items:center;">
+    const uploadBtn = r.imageUrl
+      ? `<a href="${r.imageUrl}" target="_blank" title="View uploaded image" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:36px;background:var(--success);color:#fff;border-radius:7px;text-decoration:none;font-size:13px;">✓</a>`
+      : `<button onclick="triggerPaperworkImageUpload(${r.id})" title="Attach photo" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:36px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;cursor:pointer;color:var(--muted);padding:0;" onmouseover="this.style.borderColor='#000';this.style.color='#000'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>`;
+    return `<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 36px 36px;gap:8px;margin-bottom:8px;align-items:center;">
       <select onchange="updatePaperworkRow(${r.id},'client',this.value)" style="padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;">${clientOpts}</select>
       <select style="padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;">
         <option>Notarized Cosigner Form</option>
       </select>
       <select onchange="updatePaperworkRow(${r.id},'cosigner',this.value)" style="padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;">${cosignerOpts}</select>
+      <input type="text" placeholder="Notes (optional)" value="${r.notes||''}" oninput="updatePaperworkRow(${r.id},'notes',this.value)" style="padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;">
+      ${uploadBtn}
       <button onclick="removePaperworkRow(${r.id})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:20px;padding:0;line-height:1;">×</button>
     </div>`;
   }).join('');
@@ -2673,7 +2694,7 @@ async function savePayments() {
     for (const r of paperworkRows) {
       if (!r.client) { alert('Please select a client for each row.'); return; }
       deal.ncfReceived = String(parseInt(deal.ncfReceived||0) + 1);
-      deal.paymentLog.push({ client:r.client, type:'Notarized Cosigner Form', cosigner:r.cosigner||'', amount:'', date:today });
+      deal.paymentLog.push({ client:r.client, type:'Notarized Cosigner Form', cosigner:r.cosigner||'', amount:'', date:today, notes:r.notes||'', imageUrl:r.imageUrl||'' });
     }
   }
 
