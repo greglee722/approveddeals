@@ -257,6 +257,50 @@ textarea { resize: vertical; min-height: 80px; }
 .yes-badge { background: #d0ebe0; color: #1a6b3a; padding: 2px 8px; border-radius: 10px; font-size: 11.5px; }
 .no-badge  { background: #fdf0ef; color: var(--danger); padding: 2px 8px; border-radius: 10px; font-size: 11.5px; }
 
+/* ATTACHMENT TILE */
+.attachment-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface2); margin-bottom: 7px; gap: 10px;
+}
+.attachment-item:last-child { margin-bottom: 0; }
+.attachment-label { font-size: 12.5px; font-weight: 500; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attachment-meta { font-size: 11px; color: var(--muted); flex-shrink: 0; }
+.attachment-view-btn {
+  background: none; border: 1px solid var(--border); border-radius: 5px;
+  cursor: pointer; color: var(--muted); padding: 3px 8px; font-size: 11.5px;
+  display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;
+  transition: all 0.12s; font-family: var(--font-body);
+}
+.attachment-view-btn:hover { background: #000; color: #fff; border-color: #000; }
+
+/* LIGHTBOX */
+#attachment-lightbox {
+  display: none; position: fixed; inset: 0; z-index: 999;
+  background: rgba(0,0,0,0.85); align-items: center; justify-content: center;
+  padding: 24px;
+}
+#attachment-lightbox.open { display: flex; }
+.lightbox-inner {
+  background: var(--surface); border-radius: var(--radius); max-width: 90vw;
+  max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+}
+.lightbox-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+}
+.lightbox-title { font-family: var(--font-head); font-size: 15px; }
+.lightbox-close {
+  background: none; border: none; cursor: pointer; color: var(--muted);
+  font-size: 22px; line-height: 1; padding: 0 4px; transition: color 0.1s;
+}
+.lightbox-close:hover { color: var(--danger); }
+.lightbox-body { padding: 16px; overflow: auto; display: flex; align-items: center; justify-content: center; }
+.lightbox-body img { max-width: 100%; max-height: 70vh; border-radius: 6px; display: block; }
+.lightbox-link { display: block; text-align: center; padding: 12px 18px; font-size: 13px; color: var(--muted); border-top: 1px solid var(--border); text-decoration: none; }
+.lightbox-link:hover { color: var(--accent); }
+
 /* OBJ PAGES */
 .obj-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
 
@@ -449,7 +493,7 @@ th.sortable:hover { color:var(--text); }
 
 <div id="app" style="display:none;">
 <header id="header">
-  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v2.0</span></div>
+  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v2.1</span></div>
   <nav class="header-nav">
     <button class="nav-tab active" data-page="dashboard"  onclick="showPage('dashboard',this)">Dashboard</button>
     <button class="nav-tab alert-tab" data-page="payments" onclick="showPage('payments',this)">Payments &amp; Paperwork</button>
@@ -869,6 +913,20 @@ th.sortable:hover { color:var(--text); }
 
 <!-- HIDDEN FILE INPUT FOR PAYMENT IMAGE UPLOAD -->
 <input type="file" id="payment-image-input" accept="image/*" style="display:none;" onchange="handlePaymentImageFile(this)">
+
+<!-- ATTACHMENT LIGHTBOX -->
+<div id="attachment-lightbox" onclick="if(event.target===this)closeLightbox()">
+  <div class="lightbox-inner">
+    <div class="lightbox-header">
+      <span class="lightbox-title" id="lightbox-title">Attachment</span>
+      <button class="lightbox-close" onclick="closeLightbox()">×</button>
+    </div>
+    <div class="lightbox-body">
+      <img id="lightbox-img" src="" alt="Attachment">
+    </div>
+    <a id="lightbox-ext-link" href="#" target="_blank" class="lightbox-link">↗ Open in new tab</a>
+  </div>
+</div>
 
 <!-- AI DEAL MODAL -->
 <div class="mini-overlay" id="ai-deal-overlay">
@@ -1588,6 +1646,27 @@ function openDealDetail(id) {
         <div class="detail-card-title"><span>Clients</span>${pencil}</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px;">${clientsHTML||'<span style="color:var(--muted);font-size:13px;">None attached</span>'}</div>
       </div>
+
+      ${(()=>{
+        const atts = (d.paymentLog||[]).filter(p=>p.imageUrl);
+        if(!atts.length) return '';
+        const eyeIcon = `<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+        const rows = atts.map(p=>{
+          const label = p.type||'Attachment';
+          const sub = p.client ? `<span class="attachment-meta">${p.client}</span>` : '';
+          return `<div class="attachment-item">
+            <span class="attachment-label" title="${label}">${label}</span>
+            ${sub}
+            <button class="attachment-view-btn" onclick="openLightbox('${p.imageUrl.replace(/'/g,"\\'")}','${label.replace(/'/g,"\\'")}')">
+              ${eyeIcon} View
+            </button>
+          </div>`;
+        }).join('');
+        return `<div class="detail-card">
+          <div class="detail-card-title"><span>Attachments</span></div>
+          ${rows}
+        </div>`;
+      })()}
 
       ${d.additionalInfo?`<div class="detail-card detail-full"><div class="detail-card-title"><span>Additional Information</span>${pencil}</div><div style="font-size:13px;line-height:1.6;white-space:pre-wrap;">${d.additionalInfo}</div></div>`:''}
       ${parseFloat(d.appfeeNeeded||0)>0?`<div class="detail-card" style="${owes(d.appfeeNeeded,d.appfeeReceived)}">
@@ -2515,6 +2594,27 @@ async function deletePaymentEntry(dealId, index) {
   openDealDetail(dealId);
   applyFilters(); renderStats();
 }
+
+function openLightbox(url, title) {
+  const lb = document.getElementById('attachment-lightbox');
+  const img = document.getElementById('lightbox-img');
+  const ttl = document.getElementById('lightbox-title');
+  const lnk = document.getElementById('lightbox-ext-link');
+  img.src = url;
+  ttl.textContent = title || 'Attachment';
+  lnk.href = url;
+  lb.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox() {
+  const lb = document.getElementById('attachment-lightbox');
+  lb.classList.remove('open');
+  document.getElementById('lightbox-img').src = '';
+  document.body.style.overflow = '';
+}
+// Close lightbox on Escape key
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeLightbox(); });
 
 function editPaymentEntry(dealId, index) {
   const deal = db.deals.find(d=>d.id===dealId);
