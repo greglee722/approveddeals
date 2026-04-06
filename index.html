@@ -493,7 +493,7 @@ th.sortable:hover { color:var(--text); }
 
 <div id="app" style="display:none;">
 <header id="header">
-  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v2.2</span></div>
+  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v2.3</span></div>
   <nav class="header-nav">
     <button class="nav-tab active" data-page="dashboard"  onclick="showPage('dashboard',this)">Dashboard</button>
     <button class="nav-tab alert-tab" data-page="payments" onclick="showPage('payments',this)">Payments &amp; Paperwork</button>
@@ -3077,20 +3077,38 @@ function setAIStatus(text, progress) {
   document.getElementById('ai-progress-bar').style.width = progress + '%';
 }
 
+function showInlineAIStatus(msg, type) {
+  // type: 'working' | 'success' | 'error'
+  const el = document.getElementById('ai-status');
+  if (!el) return;
+  const colors = {
+    working: { bg: '#f5f3ef', border: '#d4cfc6', color: '#555' },
+    success: { bg: '#f0f8f4', border: '#a8d5b8', color: '#1a6b3a' },
+    error:   { bg: '#fdf0ef', border: '#f5c6c2', color: '#c0392b' }
+  };
+  const c = colors[type] || colors.working;
+  el.style.cssText = `display:block;margin-top:8px;font-size:12.5px;padding:9px 14px;border-radius:7px;background:${c.bg};border:1px solid ${c.border};color:${c.color};display:flex;align-items:center;gap:8px;`;
+  el.innerHTML = msg;
+}
+function hideInlineAIStatus() {
+  const el = document.getElementById('ai-status');
+  if (el) el.style.display = 'none';
+}
+
 async function runAIDeal() {
   const apiKey = localStorage.getItem('ai_api_key') || document.getElementById('ai-api-key').value.trim();
-  if (!apiKey) { showAIError('Please enter your Anthropic API key first.'); return; }
+  if (!apiKey) { showInlineAIStatus('⚠️ Please enter your Anthropic API key first.', 'error'); return; }
 
   const text = document.getElementById('ai-deal-input').value.trim();
-  if (!text) { showAIError('Please describe the deal first.'); return; }
+  if (!text) { showInlineAIStatus('⚠️ Please describe the deal first.', 'error'); return; }
 
-  document.getElementById('ai-error').style.display = 'none';
-  document.getElementById('ai-loading').style.display = 'block';
-  document.querySelector('#ai-deal-overlay .btn-primary').disabled = true;
-  setAIStatus('Connecting to Claude…', 10);
+  const runBtn = document.getElementById('ai-run-btn');
+  if (runBtn) { runBtn.disabled = true; runBtn.style.opacity = '0.6'; }
+
+  // Status: Thinking
+  showInlineAIStatus('<svg style="flex-shrink:0;animation:spin 1s linear infinite" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10"/></svg> Thinking…', 'working');
 
   // Build context
-  setAIStatus('Reading your existing data…', 25);
   const addressList = db.addresses.map(a => `${a.id}: ${addrDisplay(a)}`).join('\n');
   const landlordList = db.landlords.map(l => `${l.id}: ${l.name}`).join('\n');
   const agentList = db.agents.map(a => `${a.id}: ${a.name}`).join('\n');
@@ -3158,7 +3176,8 @@ Example: "fmr collected and delivered, lmr collected" → fmrReceived:fmrNeeded,
 Example: "client is Greg Lee, greg@gmail.com" → clients:[{"id":"","first":"Greg","last":"Lee","email":"greg@gmail.com","phone":""}]`;
 
   try {
-    setAIStatus('Sending to Claude AI…', 45);
+    // Status: Analyzing
+    showInlineAIStatus('<svg style="flex-shrink:0;animation:spin 1s linear infinite" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Analyzing deal…', 'working');
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -3180,28 +3199,31 @@ Example: "client is Greg Lee, greg@gmail.com" → clients:[{"id":"","first":"Gre
       throw new Error(err.error?.message || 'API error ' + res.status);
     }
 
-    setAIStatus('Response received, extracting fields…', 75);
+    // Status: Creating deal
+    showInlineAIStatus('<svg style="flex-shrink:0;animation:spin 1s linear infinite" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10"/></svg> Creating deal…', 'working');
     const data = await res.json();
     const raw = data.content?.[0]?.text || '';
     // Strip any markdown fences just in case
     const clean = raw.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/\s*```$/,'').trim();
-    setAIStatus('Filling in deal form…', 90);
     const deal = JSON.parse(clean);
 
-    setAIStatus('Done!', 100);
-    await new Promise(r => setTimeout(r, 300)); // brief pause to show 100%
-    document.getElementById('ai-loading').style.display = 'none';
-    document.querySelector('#ai-deal-overlay .btn-primary').disabled = false;
-    closeAIDealModal();
+    // Status: Success splash
+    showInlineAIStatus('✅ Deal created! Opening form…', 'success');
+    if (runBtn) { runBtn.disabled = false; runBtn.style.opacity = ''; }
+
+    // Clear textarea
+    document.getElementById('ai-deal-input').value = '';
+
+    await new Promise(r => setTimeout(r, 1200)); // show success briefly
+    hideInlineAIStatus();
 
     // Pre-fill the deal modal
     openDealModal();
     setTimeout(() => applyAIDeal(deal), 100);
 
   } catch(e) {
-    document.getElementById('ai-loading').style.display = 'none';
-    document.querySelector('#ai-deal-overlay .btn-primary').disabled = false;
-    showAIError('Error: ' + e.message);
+    if (runBtn) { runBtn.disabled = false; runBtn.style.opacity = ''; }
+    showInlineAIStatus('⚠️ Error: ' + e.message, 'error');
     console.error(e);
   }
 }
