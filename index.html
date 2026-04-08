@@ -493,7 +493,7 @@ th.sortable:hover { color:var(--text); }
 
 <div id="app" style="display:none;">
 <header id="header">
-  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v2.3</span></div>
+  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v2.4</span></div>
   <nav class="header-nav">
     <button class="nav-tab active" data-page="dashboard"  onclick="showPage('dashboard',this)">Dashboard</button>
     <button class="nav-tab alert-tab" data-page="payments" onclick="showPage('payments',this)">Payments &amp; Paperwork</button>
@@ -684,6 +684,21 @@ th.sortable:hover { color:var(--text); }
     <div id="client-popup-body"></div>
     <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;">
       <button class="btn btn-ghost" onclick="closeClientPopup()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- LANDLORD POPUP -->
+<div class="mini-overlay" id="landlord-popup-overlay" onclick="if(event.target===this)closeLandlordPopup()">
+  <div class="mini-modal" style="width:420px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div class="mini-title" style="margin-bottom:0;" id="landlord-popup-name">Landlord</div>
+      <button class="modal-close" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);" onclick="closeLandlordPopup()">×</button>
+    </div>
+    <div id="landlord-popup-body"></div>
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <button class="btn btn-ghost btn-sm" id="landlord-popup-edit-btn" onclick="closeLandlordPopup()">Edit Landlord</button>
+      <button class="btn btn-ghost btn-sm" onclick="closeLandlordPopup()">Close</button>
     </div>
   </div>
 </div>
@@ -1638,7 +1653,7 @@ function openDealDetail(id) {
       <div class="detail-hero-meta">
         <div class="detail-meta-item"><div class="detail-meta-label">Lease Start</div><div class="detail-meta-val">${formatDate(d.leaseStart)}</div></div>
         <div class="detail-meta-item"><div class="detail-meta-label">Lease End</div><div class="detail-meta-val">${formatDate(d.leaseEnd)}</div></div>
-        <div class="detail-meta-item"><div class="detail-meta-label">Landlord</div><div class="detail-meta-val">${d.landlordName||'—'}</div></div>
+        <div class="detail-meta-item"><div class="detail-meta-label">Landlord</div><div class="detail-meta-val">${d.landlordId||d.landlordName?`<button onclick="openLandlordPopup('${d.landlordId||''}','${(d.landlordName||'').replace(/'/g,"\\'")}')" style="background:none;border:none;cursor:pointer;color:#fff;font-size:14px;font-weight:500;font-family:var(--font-body);padding:0;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(255,255,255,0.4);transition:text-decoration-color 0.15s;" onmouseover="this.style.textDecorationColor='rgba(255,255,255,0.9)'" onmouseout="this.style.textDecorationColor='rgba(255,255,255,0.4)'">${d.landlordName||'—'}</button>`:'—'}</div></div>
         <div class="detail-meta-item"><div class="detail-meta-label">Agent</div><div class="detail-meta-val">${d.agentName||'—'}</div></div>
         <div class="detail-meta-item"><div class="detail-meta-label">Commission</div><div class="detail-meta-val">${formatCur(d.commission)}</div></div>
       </div>
@@ -2743,6 +2758,46 @@ function openClientPopup(clientId, clientName) {
 }
 function closeClientPopup() {
   document.getElementById('client-popup-overlay').classList.remove('open');
+}
+
+function openLandlordPopup(landlordId, landlordName) {
+  let l = landlordId ? db.landlords.find(x => x.id === landlordId) : null;
+  if (!l && landlordName) l = db.landlords.find(x => (x.name||'').toLowerCase() === landlordName.toLowerCase());
+  const displayName = (l && l.name) || landlordName || 'Landlord';
+  document.getElementById('landlord-popup-name').textContent = displayName;
+  // Wire up edit button
+  const editBtn = document.getElementById('landlord-popup-edit-btn');
+  if (l) {
+    editBtn.style.display = '';
+    editBtn.onclick = () => { closeLandlordPopup(); openObjModal('landlord', false, l.id); };
+  } else {
+    editBtn.style.display = 'none';
+  }
+  if (!l) {
+    document.getElementById('landlord-popup-body').innerHTML = '<p style="color:var(--muted);font-size:13px;">No additional info on file for this landlord.</p>';
+    document.getElementById('landlord-popup-overlay').classList.add('open');
+    return;
+  }
+  // Find deals for this landlord
+  const relatedDeals = (db.deals||[]).filter(d => d.landlordId === l.id || (d.landlordName||'').toLowerCase() === (l.name||'').toLowerCase());
+  document.getElementById('landlord-popup-body').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:10px;font-size:13.5px;">
+      ${l.email ? `<div style="display:flex;gap:12px;"><span style="color:var(--muted);min-width:60px;">Email</span><a href="mailto:${l.email}" style="color:#000;text-decoration:underline;">${l.email}</a></div>` : ''}
+      ${l.phone ? `<div style="display:flex;gap:12px;"><span style="color:var(--muted);min-width:60px;">Phone</span><a href="tel:${l.phone}" style="color:#000;">${l.phone}</a></div>` : ''}
+      ${l.notes ? `<div style="display:flex;gap:12px;"><span style="color:var(--muted);min-width:60px;">Notes</span><span>${l.notes}</span></div>` : ''}
+      ${!l.email && !l.phone && !l.notes ? '<p style="color:var(--muted);font-size:13px;">No contact info on file.</p>' : ''}
+      ${relatedDeals.length ? `<div style="margin-top:4px;padding-top:10px;border-top:1px solid var(--border);">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:8px;">Related Deals</div>
+        ${relatedDeals.map(d=>`<div style="font-size:13px;margin-bottom:5px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <span style="font-weight:500;">${d.name||'Untitled'}</span>
+          <span class="badge ${d.status==='active'?'badge-active':'badge-draft'}" style="font-size:11px;">${d.status==='active'?'Active':'Draft'}</span>
+        </div>`).join('')}
+      </div>` : ''}
+    </div>`;
+  document.getElementById('landlord-popup-overlay').classList.add('open');
+}
+function closeLandlordPopup() {
+  document.getElementById('landlord-popup-overlay').classList.remove('open');
 }
 
 function openClientDetail(clientId) {
