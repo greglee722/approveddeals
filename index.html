@@ -76,7 +76,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font-body);
 .btn-xs { padding: 4px 10px; font-size: 11.5px; }
 
 /* STAT CARDS */
-.stats-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 28px; }
+.stats-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 28px; }
 .stat-card {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 20px 22px; box-shadow: var(--shadow);
@@ -493,7 +493,7 @@ th.sortable:hover { color:var(--text); }
 
 <div id="app" style="display:none;">
 <header id="header">
-  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v2.4</span></div>
+  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v2.5</span></div>
   <nav class="header-nav">
     <button class="nav-tab active" data-page="dashboard"  onclick="showPage('dashboard',this)">Dashboard</button>
     <button class="nav-tab alert-tab" data-page="payments" onclick="showPage('payments',this)">Payments &amp; Paperwork</button>
@@ -571,7 +571,8 @@ th.sortable:hover { color:var(--text); }
 
       <div class="stats-row">
         <div class="stat-card clickable" id="stat-active-card" onclick="toggleStatFilter('active')"><div class="stat-label">Active Deals</div><div class="stat-val" id="stat-active">0</div><div class="stat-sub">saved &amp; approved</div></div>
-        <div class="stat-card clickable" id="stat-drafts-card" onclick="toggleStatFilter('draft')"><div class="stat-label">Drafts</div><div class="stat-val" id="stat-drafts">0</div><div class="stat-sub">in progress</div></div>
+        <div class="stat-card clickable" id="stat-duesoon-card" onclick="toggleStatFilter('duesoon')"><div class="stat-label">Due Soon</div><div class="stat-val warn" id="stat-duesoon">0</div><div class="stat-sub">due within 15 days</div></div>
+        <div class="stat-card clickable" id="stat-overdue-card" onclick="toggleStatFilter('overdue')"><div class="stat-label">Overdue</div><div class="stat-val warn" id="stat-overdue">0</div><div class="stat-sub">past due date</div></div>
         <div class="stat-card clickable" id="stat-broker-card" onclick="toggleStatFilter('broker')"><div class="stat-label">Missing Broker Fee</div><div class="stat-val warn" id="stat-broker">0</div><div class="stat-sub">broker needed &gt; received</div></div>
       </div>
       <div class="card">
@@ -1153,6 +1154,7 @@ async function startApp() {
     renderDraftsTable();
     renderPaymentsTable();
     renderDeliveryTable();
+    restoreFromHash();
   } catch(e) {
     document.getElementById('loading-screen').classList.remove('show');
     document.getElementById('auth-screen').style.display = 'flex';
@@ -1405,7 +1407,7 @@ function getDeliveryIssues(d) {
 // ══════════════════════════════════════
 // NAVIGATION
 // ══════════════════════════════════════
-function showPage(p, btn) {
+function showPage(p, btn, skipHash) {
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.hamburger-item').forEach(x=>x.classList.remove('active'));
@@ -1424,25 +1426,93 @@ function showPage(p, btn) {
   if (p==='archived')  renderArchivedTable();
   if (p==='drafts')    renderDraftsTable();
   if (p==='requests')  renderRequestsTable();
+  if (!skipHash && location.hash !== '#'+p) history.pushState(null,'','#'+p);
 }
 
 // ══════════════════════════════════════
 // STATS & FILTER STATE
 // ══════════════════════════════════════
-let activeStatFilter = null; // 'active' | 'draft' | 'broker'
+let activeStatFilter = null; // 'active' | 'duesoon' | 'overdue' | 'broker'
+
+// Due date helpers
+const DUE_DATE_FIELDS = [
+  { due: 'appfeeDue',  needed: 'appfeeNeeded',  received: 'appfeeReceived'  },
+  { due: 'fmrDue',    needed: 'fmrNeeded',      received: 'fmrReceived'     },
+  { due: 'brokerDue', needed: 'brokerNeeded',    received: 'brokerReceived'  },
+  { due: 'lmrDue',    needed: 'lmrNeeded',       received: 'lmrReceived'     },
+  { due: 'secdepDue', needed: 'secdepNeeded',    received: 'secdepReceived'  },
+  { due: 'keyfeeDue', needed: 'keyfeeNeeded',    received: 'keyfeeReceived'  },
+  { due: 'ncfDue',    needed: 'ncfNeeded',       received: 'ncfReceived'     },
+];
+
+function isDueSoon(d, days) {
+  if (d.status !== 'active') return false;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const cutoff = new Date(today); cutoff.setDate(cutoff.getDate() + days);
+  return DUE_DATE_FIELDS.some(f => {
+    if (!d[f.due]) return false;
+    const n = parseFloat(d[f.needed]||0), r = parseFloat(d[f.received]||0);
+    if (r >= n && n > 0) return false; // already fully received
+    const due = new Date(d[f.due]+'T00:00:00');
+    return due >= today && due <= cutoff;
+  });
+}
+
+function isOverdue(d) {
+  if (d.status !== 'active') return false;
+  const today = new Date(); today.setHours(0,0,0,0);
+  return DUE_DATE_FIELDS.some(f => {
+    if (!d[f.due]) return false;
+    const n = parseFloat(d[f.needed]||0), r = parseFloat(d[f.received]||0);
+    if (r >= n && n > 0) return false; // already fully received
+    const due = new Date(d[f.due]+'T00:00:00');
+    return due < today;
+  });
+}
+
+function isDueSoonForPaymentType(d, payType, days) {
+  // payType: 'any' | field prefix key
+  const today = new Date(); today.setHours(0,0,0,0);
+  const cutoff = new Date(today); cutoff.setDate(cutoff.getDate() + days);
+  const fields = payType === 'any' ? DUE_DATE_FIELDS : DUE_DATE_FIELDS.filter(f => f.due === payType+'Due');
+  return fields.some(f => {
+    if (!d[f.due]) return false;
+    const n = parseFloat(d[f.needed]||0), r = parseFloat(d[f.received]||0);
+    if (r >= n && n > 0) return false;
+    const due = new Date(d[f.due]+'T00:00:00');
+    return due >= today && due <= cutoff;
+  });
+}
+
+function isOverdueForPaymentType(d, payType) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const fields = payType === 'any' ? DUE_DATE_FIELDS : DUE_DATE_FIELDS.filter(f => f.due === payType+'Due');
+  return fields.some(f => {
+    if (!d[f.due]) return false;
+    const n = parseFloat(d[f.needed]||0), r = parseFloat(d[f.received]||0);
+    if (r >= n && n > 0) return false;
+    const due = new Date(d[f.due]+'T00:00:00');
+    return due < today;
+  });
+}
 
 function renderStats() {
   const live = db.deals.filter(d=>d.status!=='archived');
   document.getElementById('stat-active').textContent = live.filter(d=>d.status==='active').length;
-  document.getElementById('stat-drafts').textContent = live.filter(d=>d.status==='draft').length;
+  const dueSoonCount = live.filter(d=>isDueSoon(d,15)).length;
+  const overdueCount = live.filter(d=>isOverdue(d)).length;
+  const duesoonEl = document.getElementById('stat-duesoon');
+  const overdueEl = document.getElementById('stat-overdue');
+  if (duesoonEl) { duesoonEl.textContent = dueSoonCount; duesoonEl.className = 'stat-val' + (dueSoonCount>0?' warn':''); }
+  if (overdueEl) { overdueEl.textContent = overdueCount; overdueEl.className = 'stat-val' + (overdueCount>0?' warn':''); }
   document.getElementById('stat-broker').textContent = live.filter(hasMissingBrokerFee).length;
 }
 
 function toggleStatFilter(type) {
   if (activeStatFilter===type) activeStatFilter=null; else activeStatFilter=type;
-  ['active','drafts','broker'].forEach(k=>{
+  ['active','duesoon','overdue','broker'].forEach(k=>{
     const card = document.getElementById('stat-'+k+'-card');
-    if (card) card.classList.toggle('active-filter', activeStatFilter===({'active':'active','drafts':'draft','broker':'broker'}[k]));
+    if (card) card.classList.toggle('active-filter', activeStatFilter===k);
   });
   applyFilters();
 }
@@ -1456,9 +1526,10 @@ function applyFilters() {
   const q = (document.getElementById('filter-search')?.value||'').toLowerCase();
   let rows = db.deals.filter(d=>{
     if (d.status==='archived') return false;
-    if (activeStatFilter==='active' && d.status!=='active') return false;
-    if (activeStatFilter==='draft'  && d.status!=='draft')  return false;
-    if (activeStatFilter==='broker' && !hasMissingBrokerFee(d)) return false;
+    if (activeStatFilter==='active'  && d.status!=='active') return false;
+    if (activeStatFilter==='duesoon' && !isDueSoon(d,15)) return false;
+    if (activeStatFilter==='overdue' && !isOverdue(d)) return false;
+    if (activeStatFilter==='broker'  && !hasMissingBrokerFee(d)) return false;
     if (q && !(d.name||'').toLowerCase().includes(q) && !(d.landlordName||'').toLowerCase().includes(q) && !(d.agentName||'').toLowerCase().includes(q)) return false;
     for (const f of activeFilters) {
       const val = f.value;
@@ -1473,6 +1544,13 @@ function applyFilters() {
       if (f.field==='agent')    match = (d.agentName||'').toLowerCase()===val.toLowerCase();
       if (f.field==='stage')    match = String(d.stage||0)===String(val);
       if (f.field==='payment')  { const iss=getPaymentIssues(d); match=val==='outstanding'?iss.length>0:iss.length===0; }
+      if (f.field==='duedate') {
+        const payType = f.payType||'any';
+        if (val==='soon7')   match = isDueSoonForPaymentType(d, payType, 7);
+        else if (val==='soon15')  match = isDueSoonForPaymentType(d, payType, 15);
+        else if (val==='soon30')  match = isDueSoonForPaymentType(d, payType, 30);
+        else if (val==='overdue') match = isOverdueForPaymentType(d, payType);
+      }
       if (f.operator==='neq') match=!match;
       if (!match) return false;
     }
@@ -1494,9 +1572,10 @@ function applyFilters() {
   }
   const liveCount = db.deals.filter(d=>d.status!=='archived').length;
   let heading = 'All Deals';
-  if (activeStatFilter==='broker') heading = 'Deals Missing Broker Fee';
-  else if (activeStatFilter==='active') heading = 'Active Deals';
-  else if (activeStatFilter==='draft') heading = 'Draft Deals';
+  if (activeStatFilter==='broker')  heading = 'Deals Missing Broker Fee';
+  else if (activeStatFilter==='active')  heading = 'Active Deals';
+  else if (activeStatFilter==='duesoon') heading = 'Deals Due Within 15 Days';
+  else if (activeStatFilter==='overdue') heading = 'Overdue Deals';
   document.getElementById('table-heading').textContent = heading + (rows.length !== liveCount ? ` (${rows.length})` : '');
   renderDealsTable(rows);
 }
@@ -1504,7 +1583,7 @@ function applyFilters() {
 function clearAllFilters() {
   document.getElementById('filter-search').value='';
   activeStatFilter=null; activeFilters=[];
-  ['active','drafts','broker'].forEach(k=> document.getElementById('stat-'+k+'-card')?.classList.remove('active-filter'));
+  ['active','duesoon','overdue','broker'].forEach(k=> document.getElementById('stat-'+k+'-card')?.classList.remove('active-filter'));
   renderFilterRows(); renderFilterChips(); applyFilters();
 }
 
@@ -1593,6 +1672,7 @@ function renderDeliveryTable() {
 function closeDetail() {
   const lv=document.getElementById('dash-list-view'); if(lv) lv.style.display='';
   const dv=document.getElementById('deal-detail-view'); if(dv) dv.style.display='none';
+  if (location.hash.startsWith('#deal-')) history.pushState(null,'','#dashboard');
 }
 
 function openDealDetail(id) {
@@ -1609,6 +1689,7 @@ function openDealDetail(id) {
   document.getElementById('dash-list-view').style.display='none';
   const el = document.getElementById('deal-detail-view');
   el.style.display='';
+  if (location.hash !== '#deal-'+id) history.pushState(null,'','#deal-'+id);
   const stage = d.stage||0;
   const yn = v => v==='Yes'?`<span class="yes-badge">Yes</span>`:v==='No'?`<span class="no-badge">No</span>`:'—';
   const stageBar = STAGE_NAMES.map((n,i)=>{
@@ -2295,6 +2376,7 @@ const FILTER_FIELDS = {
   agent:    { label: 'Agent' },
   stage:    { label: 'Stage' },
   payment:  { label: 'Payment Status' },
+  duedate:  { label: 'Due Date' },
 };
 function openFilterPanel() {
   document.getElementById('filter-panel').classList.add('open');
@@ -2331,19 +2413,34 @@ function renderFilterRows() {
       <select class="filter-input" onchange="updateFilterField(${f.id}, this.value)">
         ${Object.entries(FILTER_FIELDS).map(([k,v]) => `<option value="${k}" ${f.field===k?'selected':''}>${v.label}</option>`).join('')}
       </select>
-      <span class="filter-field-label">Operator</span>
-      <select class="filter-input" onchange="updateFilterOperator(${f.id}, this.value)">
-        ${f.field === 'lease' ? `
-          <option value="eq"     ${f.operator==='eq'    ?'selected':''}>equals</option>
-          <option value="neq"    ${f.operator==='neq'   ?'selected':''}>does not equal</option>
-          <option value="before" ${f.operator==='before'?'selected':''}>before</option>
-          <option value="after"  ${f.operator==='after' ?'selected':''}>after</option>
-        ` : `
-          <option value="eq"  ${f.operator==='eq' ?'selected':''}>equals</option>
-          <option value="neq" ${f.operator==='neq'?'selected':''}>does not equal</option>
-        `}
-      </select>
-      <span class="filter-field-label">Value</span>
+      ${f.field === 'duedate' ? `
+        <span class="filter-field-label">Payment Type</span>
+        <select class="filter-input" onchange="updateFilterPayType(${f.id}, this.value)">
+          <option value="any" ${(f.payType||'any')==='any'?'selected':''}>Any Payment</option>
+          <option value="appfee" ${f.payType==='appfee'?'selected':''}>App Fee</option>
+          <option value="fmr"    ${f.payType==='fmr'   ?'selected':''}>FMR</option>
+          <option value="broker" ${f.payType==='broker' ?'selected':''}>Broker Fee</option>
+          <option value="lmr"    ${f.payType==='lmr'   ?'selected':''}>LMR</option>
+          <option value="secdep" ${f.payType==='secdep' ?'selected':''}>Security Deposit</option>
+          <option value="keyfee" ${f.payType==='keyfee' ?'selected':''}>Key Fee</option>
+          <option value="ncf"    ${f.payType==='ncf'   ?'selected':''}>NCF</option>
+        </select>
+        <span class="filter-field-label">Window</span>
+      ` : `
+        <span class="filter-field-label">Operator</span>
+        <select class="filter-input" onchange="updateFilterOperator(${f.id}, this.value)">
+          ${f.field === 'lease' ? `
+            <option value="eq"     ${f.operator==='eq'    ?'selected':''}>equals</option>
+            <option value="neq"    ${f.operator==='neq'   ?'selected':''}>does not equal</option>
+            <option value="before" ${f.operator==='before'?'selected':''}>before</option>
+            <option value="after"  ${f.operator==='after' ?'selected':''}>after</option>
+          ` : `
+            <option value="eq"  ${f.operator==='eq' ?'selected':''}>equals</option>
+            <option value="neq" ${f.operator==='neq'?'selected':''}>does not equal</option>
+          `}
+        </select>
+        <span class="filter-field-label">Value</span>
+      `}
       ${renderValueInput(f)}
     </div>`).join('');
 }
@@ -2365,16 +2462,24 @@ function renderValueInput(f) {
   if (f.field === 'payment') {
     return `<select class="filter-input" onchange="updateFilterValue(${f.id}, this.value); applyFilters(); renderFilterChips();"><option value="">Any status</option><option value="outstanding" ${f.value==='outstanding'?'selected':''}>Has Outstanding</option><option value="paid" ${f.value==='paid'?'selected':''}>All Paid</option></select>`;
   }
+  if (f.field === 'duedate') {
+    return `<select class="filter-input" onchange="updateFilterValue(${f.id}, this.value); applyFilters(); renderFilterChips();"><option value="">Select window</option><option value="soon7" ${f.value==='soon7'?'selected':''}>Due within 7 days</option><option value="soon15" ${f.value==='soon15'?'selected':''}>Due within 15 days</option><option value="soon30" ${f.value==='soon30'?'selected':''}>Due within 30 days</option><option value="overdue" ${f.value==='overdue'?'selected':''}>Overdue</option></select>`;
+  }
   return `<input type="text" class="filter-input" value="${f.value||''}" oninput="updateFilterValue(${f.id}, this.value)" onchange="applyFilters(); renderFilterChips();">`;
 }
 function updateFilterField(id, val) {
   const f = activeFilters.find(f=>f.id===id);
-  if (f) { f.field=val; f.value=''; f.operator='eq'; }
+  if (f) { f.field=val; f.value=''; f.operator='eq'; f.payType='any'; }
   renderFilterRows(); applyFilters(); renderFilterChips();
 }
 function updateFilterOperator(id, val) {
   const f = activeFilters.find(f=>f.id===id);
   if (f) f.operator = val;
+  applyFilters(); renderFilterChips();
+}
+function updateFilterPayType(id, val) {
+  const f = activeFilters.find(f=>f.id===id);
+  if (f) f.payType = val;
   applyFilters(); renderFilterChips();
 }
 function updateFilterValue(id, val) {
@@ -2387,13 +2492,19 @@ function renderFilterChips() {
   const active = activeFilters.filter(f=>f.value!=='');
   if (!active.length) { el.innerHTML=''; if(btn) btn.classList.remove('active'); return; }
   if(btn) btn.classList.add('active');
+  const PAY_TYPE_LABELS = {any:'Any Payment',appfee:'App Fee',fmr:'FMR',broker:'Broker Fee',lmr:'LMR',secdep:'Sec Dep',keyfee:'Key Fee',ncf:'NCF'};
+  const DUE_WINDOW_LABELS = {soon7:'within 7 days',soon15:'within 15 days',soon30:'within 30 days',overdue:'Overdue'};
   el.innerHTML = active.map(f => {
     const fl = FILTER_FIELDS[f.field]?.label||f.field;
     let vl = f.value;
     if (f.field==='lease') vl = formatDate(f.value);
     if (f.field==='stage') vl = ['Approved Deal','Ready For Keys','Closed'][parseInt(f.value)]||f.value;
     if (f.field==='payment') vl = f.value==='outstanding'?'Has Outstanding':'All Paid';
-    const op = f.operator==='neq'?'≠':f.operator==='before'?'before':f.operator==='after'?'after':'=';
+    if (f.field==='duedate') {
+      const pt = PAY_TYPE_LABELS[f.payType||'any']||'Any';
+      vl = pt + ' ' + (DUE_WINDOW_LABELS[f.value]||f.value);
+    }
+    const op = f.field==='duedate'?'→':f.operator==='neq'?'≠':f.operator==='before'?'before':f.operator==='after'?'after':'=';
     return `<span class="filter-chip">${fl} ${op} ${vl}<button onclick="removeFilterRow(${f.id})">×</button></span>`;
   }).join('');
 }
@@ -3593,6 +3704,43 @@ async function activateDeal(id) {
   if (i >= 0) db.deals[i].status = 'active';
   if(i>=0) await saveRecord('deals', db.deals[i]); renderDraftsTable(); renderStats();
 }
+
+// ══════════════════════════════════════
+// HASH-BASED PAGE NAVIGATION
+// ══════════════════════════════════════
+const VALID_PAGES = ['dashboard','payments','delivery','clients','addresses','landlords','agents','archived','drafts','requests'];
+
+function restoreFromHash() {
+  const hash = location.hash.slice(1); // remove #
+  if (!hash) return;
+  if (hash.startsWith('deal-')) {
+    const id = hash.slice(5);
+    const deal = db.deals.find(d=>d.id===id);
+    if (deal) { showPage('dashboard', null, true); openDealDetail(id); }
+    return;
+  }
+  if (VALID_PAGES.includes(hash)) {
+    showPage(hash, null, true);
+  }
+}
+
+window.addEventListener('popstate', () => {
+  const hash = location.hash.slice(1);
+  if (!hash || hash === 'dashboard') {
+    // Going back to dashboard list view
+    showPage('dashboard', null, true);
+    return;
+  }
+  if (hash.startsWith('deal-')) {
+    const id = hash.slice(5);
+    const deal = db.deals.find(d=>d.id===id);
+    if (deal) { showPage('dashboard', null, true); openDealDetail(id); }
+    return;
+  }
+  if (VALID_PAGES.includes(hash)) {
+    showPage(hash, null, true);
+  }
+});
 
 // ══════════════════════════════════════
 // INIT
