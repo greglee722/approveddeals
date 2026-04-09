@@ -493,7 +493,7 @@ th.sortable:hover { color:var(--text); }
 
 <div id="app" style="display:none;">
 <header id="header">
-  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v2.5</span></div>
+  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v2.6</span></div>
   <nav class="header-nav">
     <button class="nav-tab active" data-page="dashboard"  onclick="showPage('dashboard',this)">Dashboard</button>
     <button class="nav-tab alert-tab" data-page="payments" onclick="showPage('payments',this)">Payments &amp; Paperwork</button>
@@ -597,6 +597,7 @@ th.sortable:hover { color:var(--text); }
             <th onclick="toggleSort('agent')" style="cursor:pointer;user-select:none;"><span style="display:inline-flex;align-items:center;gap:5px;">Agent<span id="sort-icon-agent" style="display:inline-flex;flex-direction:column;gap:1px;opacity:0.4;"><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 0L8 5H0z"/></svg><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 5L0 0H8z"/></svg></span></span></th>
             <th onclick="toggleSort('stage')" style="cursor:pointer;user-select:none;"><span style="display:inline-flex;align-items:center;gap:5px;">Stage<span id="sort-icon-stage" style="display:inline-flex;flex-direction:column;gap:1px;opacity:0.4;"><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 0L8 5H0z"/></svg><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 5L0 0H8z"/></svg></span></span></th>
             <th onclick="toggleSort('payments')" style="cursor:pointer;user-select:none;"><span style="display:inline-flex;align-items:center;gap:5px;">Payments Outstanding<span id="sort-icon-payments" style="display:inline-flex;flex-direction:column;gap:1px;opacity:0.4;"><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 0L8 5H0z"/></svg><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 5L0 0H8z"/></svg></span></span></th>
+            <th onclick="toggleSort('lastUpdated')" style="cursor:pointer;user-select:none;"><span style="display:inline-flex;align-items:center;gap:5px;">Last Updated<span id="sort-icon-lastUpdated" style="display:inline-flex;flex-direction:column;gap:1px;opacity:0.4;"><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 0L8 5H0z"/></svg><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 5L0 0H8z"/></svg></span></span></th>
             <th></th>
           </tr></thead>
           <tbody id="deals-tbody"></tbody>
@@ -1565,6 +1566,7 @@ function applyFilters() {
       else if (sortCol==='agent') { av=(a.agent||'').toLowerCase(); bv=(b.agent||'').toLowerCase(); }
       else if (sortCol==='stage') { av=a.stage??0; bv=b.stage??0; }
       else if (sortCol==='payments') { av=getPaymentIssues(a).length; bv=getPaymentIssues(b).length; }
+      else if (sortCol==='lastUpdated') { av=a.lastUpdated||''; bv=b.lastUpdated||''; }
       if (av<bv) return sortDir==='asc'?-1:1;
       if (av>bv) return sortDir==='asc'?1:-1;
       return 0;
@@ -1594,7 +1596,7 @@ function renderDealsTable(rows) {
   if (rows===undefined) { applyFilters(); return; }
   const tbody = document.getElementById('deals-tbody');
   if (!rows.length) {
-    tbody.innerHTML=`<tr class="empty-row"><td colspan="7">No deals match your filters.</td></tr>`;
+    tbody.innerHTML=`<tr class="empty-row"><td colspan="8">No deals match your filters.</td></tr>`;
     return;
   }
   tbody.innerHTML = rows.map(d=>{
@@ -1611,6 +1613,7 @@ function renderDealsTable(rows) {
       <td>${d.agentName||'—'}</td>
       <td><span class="badge ${stageCls}">${STAGE_NAMES[stage]}</span></td>
       <td style="max-width:220px;">${payCell}</td>
+      <td style="white-space:nowrap;color:var(--muted);font-size:12px;">${relativeDate(d.lastUpdated)}</td>
       <td onclick="event.stopPropagation()" style="white-space:nowrap;">
         <button class="btn btn-ghost btn-xs" onclick="editDeal('${d.id}')">Edit</button>
         <button class="btn btn-ghost btn-xs" style="margin-left:4px;" onclick="openArchiveModal('${d.id}')">Archive</button>
@@ -1737,6 +1740,7 @@ function openDealDetail(id) {
         <div class="detail-meta-item"><div class="detail-meta-label">Landlord</div><div class="detail-meta-val">${d.landlordId||d.landlordName?`<button onclick="openLandlordPopup('${d.landlordId||''}','${(d.landlordName||'').replace(/'/g,"\\'")}')" style="background:none;border:none;cursor:pointer;color:#fff;font-size:14px;font-weight:500;font-family:var(--font-body);padding:0;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(255,255,255,0.4);transition:text-decoration-color 0.15s;" onmouseover="this.style.textDecorationColor='rgba(255,255,255,0.9)'" onmouseout="this.style.textDecorationColor='rgba(255,255,255,0.4)'">${d.landlordName||'—'}</button>`:'—'}</div></div>
         <div class="detail-meta-item"><div class="detail-meta-label">Agent</div><div class="detail-meta-val">${d.agentName||'—'}</div></div>
         <div class="detail-meta-item"><div class="detail-meta-label">Commission</div><div class="detail-meta-val">${formatCur(d.commission)}</div></div>
+        <div class="detail-meta-item"><div class="detail-meta-label">Created</div><div class="detail-meta-val" style="color:rgba(255,255,255,0.75);">${d.created ? new Date(d.created).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—'}</div></div>
       </div>
     </div>
     <div class="detail-grid">
@@ -1869,6 +1873,7 @@ async function deletePaymentLog(dealId, index) {
     }
   }
   deal.paymentLog.splice(index, 1);
+  deal.lastUpdated = new Date().toISOString();
   await saveRecord('deals', deal);
   openDealDetail(dealId);
   applyFilters(); renderStats();
@@ -2003,7 +2008,8 @@ async function saveDeal(status) {
     keyfeeNeeded:gv('df-keyfee-needed'),keyfeeReceived:gv('df-keyfee-received'),keyfeeDue:gv('df-keyfee-due'),keyfeeNotes:gv('df-keyfee-notes'),keyfeeDelivered:gv('df-keyfee-delivered'),
     ncfNeeded:gv('df-ncf-needed'),ncfDue:gv('df-ncf-due'),ncfReceived:gv('df-ncf-received'),ncfNotes:gv('df-ncf-notes'),ncfDelivered:gv('df-ncf-delivered'),ncfPartialNotes:gv('df-ncf-partial-notes'),
     leaseReceived:gv('df-lease-received'),leaseDelivered:gv('df-lease-delivered'),leaseNotes:gv('df-lease-notes'),
-    created: editingDealId?(db.deals.find(x=>x.id===editingDealId)||{}).created||new Date().toISOString():new Date().toISOString()
+    created: editingDealId?(db.deals.find(x=>x.id===editingDealId)||{}).created||new Date().toISOString():new Date().toISOString(),
+    lastUpdated: new Date().toISOString()
   };
   if(editingDealId) db.deals=db.deals.map(x=>x.id===editingDealId?deal:x);
   else db.deals.push(deal);
@@ -2303,6 +2309,18 @@ function owes(needed, received) {
 
 function formatDate(d){if(!d)return'—';const[y,m,day]=d.split('-');return`${m}/${day}/${y}`;}
 function formatCur(v){return v?'$'+parseFloat(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';}
+
+function relativeDate(iso) {
+  if (!iso) return '—';
+  const then = new Date(iso);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const thenDay = new Date(then); thenDay.setHours(0,0,0,0);
+  const diff = Math.round((today - thenDay) / 86400000);
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Yesterday';
+  if (diff < 7)  return diff + ' days ago';
+  return then.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+}
 
 function toggleHamburger() {
   const menu = document.getElementById('hamburger-menu');
@@ -2737,6 +2755,7 @@ async function deletePaymentEntry(dealId, index) {
   if (field) { const cur=parseFloat(deal[field]||0); deal[field]=Math.max(0,cur-parseFloat(entry.amount||0)).toFixed(2); }
   const origIdx = deal.paymentLog.findIndex(p=>p.client===entry.client&&p.type===entry.type&&p.amount===entry.amount&&p.date===entry.date);
   if (origIdx>=0) deal.paymentLog.splice(origIdx,1);
+  deal.lastUpdated = new Date().toISOString();
   await saveRecord('deals', deal);
   openDealDetail(dealId);
   applyFilters(); renderStats();
@@ -2824,6 +2843,7 @@ async function savePayments() {
     }
   }
 
+  deal.lastUpdated = new Date().toISOString();
   await saveRecord('deals', deal);
   closePaymentModal();
   openDealDetail(paymentDealId);
@@ -3516,7 +3536,7 @@ async function applyAIDeal(deal) {
 // ══════════════════════════════════════
 let sortCol = null;
 let sortDir = null;
-const SORT_COLS = ['leaseStart','name','landlord','agent','stage','payments'];
+const SORT_COLS = ['leaseStart','name','landlord','agent','stage','payments','lastUpdated'];
 const SORT_BOTH = '<svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 0L8 5H0z"/></svg><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 5L0 0H8z"/></svg>';
 const SORT_ASC  = '<svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 0L8 5H0z"/></svg><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor" style="opacity:0.25"><path d="M4 5L0 0H8z"/></svg>';
 const SORT_DESC = '<svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor" style="opacity:0.25"><path d="M4 0L8 5H0z"/></svg><svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor"><path d="M4 5L0 0H8z"/></svg>';
