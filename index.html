@@ -229,6 +229,15 @@ textarea { resize: vertical; min-height: 80px; }
 .cosigner-header { font-weight: 600; font-size: 12.5px; color: #000000; margin-bottom: 10px; }
 .cosigner-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
 
+/* TOAST */
+#toast {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: #000; color: #fff; padding: 10px 20px; border-radius: 8px;
+  font-size: 13.5px; font-weight: 500; z-index: 9999;
+  opacity: 0; transition: opacity 0.2s, transform 0.2s; pointer-events: none;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
 /* MINI MODAL */
 .mini-overlay { display: none; position: fixed; inset: 0; background: rgba(10,20,15,0.6); z-index: 500; align-items: center; justify-content: center; }
 .mini-overlay.open { display: flex; }
@@ -493,7 +502,7 @@ th.sortable:hover { color:var(--text); }
 
 <div id="app" style="display:none;">
 <header id="header">
-  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v2.6</span></div>
+  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v2.7</span></div>
   <nav class="header-nav">
     <button class="nav-tab active" data-page="dashboard"  onclick="showPage('dashboard',this)">Dashboard</button>
     <button class="nav-tab alert-tab" data-page="payments" onclick="showPage('payments',this)">Payments &amp; Paperwork</button>
@@ -621,6 +630,7 @@ th.sortable:hover { color:var(--text); }
     <div class="page-hdr">
       <div><div class="page-title">Clients</div></div>
       <div style="display:flex;gap:10px;">
+        <button class="btn btn-ghost" onclick="copyAllClientEmails()"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy All Emails</button>
         <button class="btn btn-ghost" onclick="triggerCSVImport()"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Import CSV</button>
         <input type="file" id="csv-file-input" accept=".csv" style="display:none;" onchange="handleCSVFile(event)">
         <button class="btn btn-primary" onclick="openObjModal('client')">+ Add Client</button>
@@ -676,6 +686,7 @@ th.sortable:hover { color:var(--text); }
 </div><!-- /main -->
 
 </div><!-- /app -->
+<div id="toast"></div>
 <!-- CLIENT POPUP (from deal page) -->
 <div class="mini-overlay" id="client-popup-overlay">
   <div class="mini-modal" style="width:480px;">
@@ -3622,6 +3633,31 @@ const CLIENT_FIELDS = [
 ];
 let importCSVHeaders=[], importCSVRows=[], importMapping={}, importParsed=[];
 function triggerCSVImport() { document.getElementById('csv-file-input').value=''; document.getElementById('csv-file-input').click(); }
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function copyAllClientEmails() {
+  const emails = (db.clients || []).map(c => c.email).filter(Boolean);
+  if (!emails.length) { showToast('No client emails on file.'); return; }
+  navigator.clipboard.writeText(emails.join(', ')).then(() => {
+    showToast('\u2713 Copied ' + emails.length + ' email' + (emails.length !== 1 ? 's' : '') + ' to clipboard');
+  }).catch(() => {
+    // Fallback for browsers that block clipboard
+    const ta = document.createElement('textarea');
+    ta.value = emails.join(', ');
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('\u2713 Copied ' + emails.length + ' email' + (emails.length !== 1 ? 's' : '') + ' to clipboard');
+  });
+}
 function handleCSVFile(e) {
   const file=e.target.files[0]; if(!file) return;
   if(!file.name.endsWith('.csv')) { alert('Please select a .csv file.'); return; }
