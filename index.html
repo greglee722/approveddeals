@@ -502,7 +502,7 @@ th.sortable:hover { color:var(--text); }
 
 <div id="app" style="display:none;">
 <header id="header">
-  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v3.6</span></div>
+  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v3.7</span></div>
   <nav class="header-nav">
     <button class="nav-tab active" data-page="dashboard"  onclick="showPage('dashboard',this)">Dashboard</button>
     <button class="nav-tab alert-tab" data-page="payments" onclick="showPage('payments',this)">Payments &amp; Paperwork</button>
@@ -1756,20 +1756,19 @@ function openDealDetail(id) {
   const cosignerHTML = (d.cosigners||[]).map(c=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:9px 12px;margin-bottom:7px;font-size:13px;">
     <div style="font-size:11.5px;color:var(--muted);">For: <strong style="color:var(--text);">${c.clientName||'—'}</strong></div>
     <div style="margin-top:2px;">${c.name||'—'} &nbsp;·&nbsp; ${c.email||'—'}</div></div>`).join('');
+  const copyIconSvg = `<svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
   const clientsHTML = (d.clients||[]).map(c=>{
-    return `<span class="client-chip client-nav-chip" data-client-id="${c.id||''}" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;" title="View client record">${c.name}</span>`;
+    const clientRec = db.clients.find(cl => cl.id === c.id);
+    const copyBtn = (clientRec && clientRec.email)
+      ? `<button onclick="event.stopPropagation();copyClientEmail('${clientRec.id}')" title="Copy email" style="display:inline-flex;align-items:center;background:none;border:none;cursor:pointer;color:var(--muted);padding:0 0 0 4px;vertical-align:middle;opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">${copyIconSvg}</button>`
+      : '';
+    return `<span style="display:inline-flex;align-items:center;gap:0;"><span class="client-chip client-nav-chip" data-client-id="${c.id||''}" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;" title="View client record">${c.name}</span>${copyBtn}</span>`;
   }).join('');
   const payIssues = getPaymentOnlyIssues(d);
   const paperworkIssues = getPaperworkIssues(d);
   const delIssues = getDeliveryIssues(d);
   const pencil = isAdmin() ? `<button class="card-edit-btn" onclick="editDeal('${d.id}')" title="Edit deal"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>` : '';
-  const copyEmailsBtn = (() => {
-    const dealHasEmails = (d.clients || []).some(c => {
-      const client = db.clients.find(client => client.id === c.id);
-      return client && client.email;
-    });
-    return dealHasEmails ? `<button class="card-edit-btn" onclick="copyDealClientEmails('${d.id}')" title="Copy client emails"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>` : '';
-  })();
+  const copyEmailsBtn = '';
   const pencilPay = isAdmin() ? `<button class="card-edit-btn" onclick="openPaymentModal('${d.id}')" title="Add payment"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>` : '';
 
   el.innerHTML = `
@@ -3780,6 +3779,22 @@ function copyDealClientEmails(dealId) {
     showToast('\u2713 Copied ' + emails.length + ' email' + (emails.length !== 1 ? 's' : '') + ' to clipboard');
   });
 }
+function copyClientEmail(clientId) {
+  const client = db.clients.find(c => c.id === clientId);
+  if (!client || !client.email) { showToast('No email on file for this client.'); return; }
+  navigator.clipboard.writeText(client.email).then(() => {
+    showToast('\u2713 Copied ' + client.email);
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = client.email;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('\u2713 Copied ' + client.email);
+  });
+}
+
 function handleCSVFile(e) {
   const file=e.target.files[0]; if(!file) return;
   if(!file.name.endsWith('.csv')) { alert('Please select a .csv file.'); return; }
