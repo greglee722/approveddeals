@@ -502,7 +502,7 @@ th.sortable:hover { color:var(--text); }
 
 <div id="app" style="display:none;">
 <header id="header">
-  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v3.5</span></div>
+  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v3.6</span></div>
   <nav class="header-nav">
     <button class="nav-tab active" data-page="dashboard"  onclick="showPage('dashboard',this)">Dashboard</button>
     <button class="nav-tab alert-tab" data-page="payments" onclick="showPage('payments',this)">Payments &amp; Paperwork</button>
@@ -1782,12 +1782,14 @@ function openDealDetail(id) {
         <button class="btn btn-outline btn-sm" onclick="editDeal('${d.id}')">Edit Deal</button>
         <button class="btn btn-primary btn-sm" onclick="openPaymentModal('${d.id}')">+ Payment / Paperwork</button>
         <button class="btn btn-ghost btn-sm" onclick="openEmailDraftModal('${d.id}')">Generate Welcome Email</button>
+        <button class="btn btn-ghost btn-sm" onclick="openNCFDraftModal('${d.id}')">Generate Notarized Cosigner</button>
         <button class="btn btn-ghost btn-sm" onclick="openArchiveModal('${d.id}')">Archive</button>
         <button class="btn btn-danger btn-sm" onclick="deleteDeal('${d.id}')">Delete</button>
       ` : `
         <button class="btn btn-outline btn-sm" onclick="openEditRequestModal('${d.id}')">Request Edit</button>
         <button class="btn btn-primary btn-sm" onclick="openPaymentModal('${d.id}')">+ Payment / Paperwork</button>
         <button class="btn btn-ghost btn-sm" onclick="openEmailDraftModal('${d.id}')">Generate Welcome Email</button>
+        <button class="btn btn-ghost btn-sm" onclick="openNCFDraftModal('${d.id}')">Generate Notarized Cosigner</button>
       `}
     </div>
     <div class="stage-bar" style="margin-bottom:20px;">${stageBar}</div>
@@ -4034,8 +4036,43 @@ function openEmailInMailClient() {
   const to = (document.getElementById('email-draft-to').textContent || '').trim();
   const subject = (document.getElementById('email-draft-subject').textContent || '').trim();
   const body = document.getElementById('email-draft-body').value;
-  const toParam = (to === '(no client emails on file)') ? '' : encodeURIComponent(to);
+  const toParam = (to === '(no client emails on file)' || to === '(no cosigner emails on file)') ? '' : encodeURIComponent(to);
   window.location.href = 'mailto:' + toParam + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+}
+
+function openNCFDraftModal(dealId) {
+  const deal = db.deals.find(d => d.id === dealId);
+  if (!deal) return;
+  _emailDraftDealId = dealId;
+
+  const address = deal.name || resolveDealAddress(deal);
+
+  const clientFirstNames = (deal.clients || [])
+    .map(c => db.clients.find(cl => cl.id === c.id))
+    .filter(Boolean)
+    .map(c => c.first)
+    .filter(Boolean);
+  const clientNames = clientFirstNames.length ? clientFirstNames.join(' and ') : '___________';
+
+  const dueDate = deal.ncfDue ? formatEmailDate(deal.ncfDue) : '___________';
+
+  const cosignerEmails = (deal.cosigners || [])
+    .map(c => c.email)
+    .filter(Boolean);
+
+  const body =
+    'Hello,\n\n' +
+    'My name is Greg and I\'m the Client Support Specialist from New Wave Boston Real Estate, assisting ' + clientNames + ' with their rental for ' + address + '. The property manager requires original notarized cosigner forms to complete the paperwork, which you electronically signed in Docusign during the application process. Attached is the form and the password is the last 4 digits of your phone number that you provided on the form. I removed your electronic signature because some notaries will not notarize a form that has already been signed. Therefore, you will need to sign the form at the notary. Please print, notarize and return the original to our office at:\n\n' +
+    'New Wave Boston Real Estate\n' +
+    '164 Newbury St\n' +
+    '4th Fl\n' +
+    'Boston, MA 02116\n\n' +
+    'Can you please return the form by ' + dueDate + '? Please let me know if you have any questions!';
+
+  document.getElementById('email-draft-to').textContent = cosignerEmails.length ? cosignerEmails.join(', ') : '(no cosigner emails on file)';
+  document.getElementById('email-draft-subject').textContent = 'Notarized Cosigner Form for ' + address;
+  document.getElementById('email-draft-body').value = body;
+  document.getElementById('email-draft-overlay').classList.add('open');
 }
 
 // ══════════════════════════════════════
