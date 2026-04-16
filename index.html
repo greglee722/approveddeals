@@ -502,7 +502,7 @@ th.sortable:hover { color:var(--text); }
 
 <div id="app" style="display:none;">
 <header id="header">
-  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v3.2</span></div>
+  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v3.3</span></div>
   <nav class="header-nav">
     <button class="nav-tab active" data-page="dashboard"  onclick="showPage('dashboard',this)">Dashboard</button>
     <button class="nav-tab alert-tab" data-page="payments" onclick="showPage('payments',this)">Payments &amp; Paperwork</button>
@@ -939,6 +939,33 @@ th.sortable:hover { color:var(--text); }
 
 
 
+
+<!-- WELCOME EMAIL DRAFT MODAL -->
+<div class="mini-overlay" id="email-draft-overlay">
+  <div class="mini-modal" style="width:680px;max-height:90vh;overflow-y:auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div class="mini-title" style="margin-bottom:0;">Welcome Email Draft</div>
+      <button class="modal-close" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);" onclick="closeEmailDraftModal()">×</button>
+    </div>
+    <div style="margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:4px;">To</div>
+      <div id="email-draft-to" style="font-size:13px;color:var(--text);padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;word-break:break-all;"></div>
+    </div>
+    <div style="margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:4px;">Subject</div>
+      <div id="email-draft-subject" style="font-size:13px;color:var(--text);padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;"></div>
+    </div>
+    <div style="margin-bottom:16px;">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:4px;">Body</div>
+      <textarea id="email-draft-body" style="width:100%;height:340px;font-size:13px;font-family:var(--font-body);color:var(--text);background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px;resize:vertical;box-sizing:border-box;line-height:1.6;"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border);padding-top:16px;">
+      <button class="btn btn-ghost" onclick="closeEmailDraftModal()">Close</button>
+      <button class="btn btn-outline btn-sm" onclick="copyEmailDraftBody()">Copy Body</button>
+      <button class="btn btn-primary btn-sm" onclick="openEmailInMailClient()">Open in Mail Client</button>
+    </div>
+  </div>
+</div>
 
 <!-- HIDDEN FILE INPUT FOR PAYMENT IMAGE UPLOAD -->
 <input type="file" id="payment-image-input" accept="image/*" style="display:none;" onchange="handlePaymentImageFile(this)">
@@ -1754,11 +1781,13 @@ function openDealDetail(id) {
       ${isAdmin() ? `
         <button class="btn btn-outline btn-sm" onclick="editDeal('${d.id}')">Edit Deal</button>
         <button class="btn btn-primary btn-sm" onclick="openPaymentModal('${d.id}')">+ Payment / Paperwork</button>
+        <button class="btn btn-ghost btn-sm" onclick="openEmailDraftModal('${d.id}')">Generate Welcome Email</button>
         <button class="btn btn-ghost btn-sm" onclick="openArchiveModal('${d.id}')">Archive</button>
         <button class="btn btn-danger btn-sm" onclick="deleteDeal('${d.id}')">Delete</button>
       ` : `
         <button class="btn btn-outline btn-sm" onclick="openEditRequestModal('${d.id}')">Request Edit</button>
         <button class="btn btn-primary btn-sm" onclick="openPaymentModal('${d.id}')">+ Payment / Paperwork</button>
+        <button class="btn btn-ghost btn-sm" onclick="openEmailDraftModal('${d.id}')">Generate Welcome Email</button>
       `}
     </div>
     <div class="stage-bar" style="margin-bottom:20px;">${stageBar}</div>
@@ -1781,8 +1810,8 @@ function openDealDetail(id) {
     </div>
     <div class="detail-grid">
       <div class="detail-card">
-        <div class="detail-card-title"><span>Clients</span>${pencil}</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">${clientsHTML||'<span style="color:var(--muted);font-size:13px;">None attached</span>'}${copyEmailsBtn}</div>
+        <div class="detail-card-title"><span>Clients</span>${copyEmailsBtn}${pencil}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">${clientsHTML||'<span style="color:var(--muted);font-size:13px;">None attached</span>'}</div>
       </div>
 
       ${(()=>{
@@ -3855,6 +3884,114 @@ window.addEventListener('popstate', () => {
 
 // ══════════════════════════════════════
 // INIT
+// ══════════════════════════════════════
+// WELCOME EMAIL DRAFT
+// ══════════════════════════════════════
+
+function formatEmailDate(dateStr) {
+  if (!dateStr) return '___________';
+  const d = new Date(dateStr + 'T00:00:00');
+  if (isNaN(d)) return dateStr;
+  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+function formatCurrency(val) {
+  const n = parseFloat(val);
+  if (!val || isNaN(n)) return '';
+  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function generateWelcomeEmail(deal) {
+  const clientFirstNames = (deal.clients || [])
+    .map(c => db.clients.find(cl => cl.id === c.id))
+    .filter(Boolean)
+    .map(c => c.first)
+    .filter(Boolean);
+  const greeting = clientFirstNames.length ? clientFirstNames.join(' & ') : 'there';
+  const address = deal.addressDisplay || '___________';
+  const landlord = deal.landlordName || '___________';
+
+  let steps = '';
+  let stepNum = 1;
+
+  if (parseFloat(deal.brokerNeeded) > 0) {
+    steps += `${stepNum}. Pay the Broker Fee${formatCurrency(deal.brokerNeeded) ? ' – ' + formatCurrency(deal.brokerNeeded) : ''}\nDUE DATE: ${formatEmailDate(deal.brokerDue)}\n\nYou can pay the broker's fee online. Please look out for the invoice in your email.\n\n`;
+    stepNum++;
+  }
+
+  steps += `${stepNum}. Sign the lease\n\nI have sent you the lease via email through DocuSign, for you to sign electronically. Please check your inbox and let me know if you have not received it!\n\n`;
+  stepNum++;
+
+  const remainingLines = [];
+  if (parseFloat(deal.secdepNeeded) > 0) {
+    remainingLines.push(`Security Deposit – ${formatCurrency(deal.secdepNeeded)}\nDUE DATE: ${formatEmailDate(deal.secdepDue)}\nPlease make cashier's check or money order payable to ${landlord}`);
+  }
+  if (parseFloat(deal.lmrNeeded) > 0) {
+    remainingLines.push(`Last Month's Rent – ${formatCurrency(deal.lmrNeeded)}\nDUE DATE: ${formatEmailDate(deal.lmrDue)}\nPlease make cashier's check or money order payable to ${landlord}`);
+  }
+  if (parseFloat(deal.keyfeeNeeded) > 0) {
+    remainingLines.push(`Key Deposit – ${formatCurrency(deal.keyfeeNeeded)}\nDUE DATE: ${formatEmailDate(deal.keyfeeDue)}\nPlease make cashier's check or money order payable to ${landlord}`);
+  }
+
+  if (remainingLines.length) {
+    steps += `${stepNum}. Pay remaining funds\n\nAs per the payment schedule (pre-lease agreement) that you signed at the time of application, the remaining funds (in the form of a cashier's check or money order) that are due are:\n\n`;
+    steps += remainingLines.join('\n\n') + '\n\n';
+    steps += `All payments need to be made separately and in the form of a cashier's check or money order (certified funds). Please be advised that we are unable to accept personal checks or checks made payable to New Wave. If you want to mail us the payments, please send via Certified Mail/Priority so that you have a receipt with the tracking information.\n\nYou can certify mail or deliver the check to:\n\nNew Wave Boston Real Estate\n164 Newbury St, 4th Fl\nBoston, MA 02116\nRE: ${address}\n\n`;
+    stepNum++;
+  }
+
+  steps += `${stepNum}. Setup Utilities\n\nIf utilities are not included in your rent, you will need to setup an account with the following companies:\nEverSource - Electricity\nNationalGrid - Gas (if applicable)\nWe recommend that you do this a few weeks before your lease start date so that there are no disruptions in service.`;
+
+  return `Hello ${greeting},\n\nCongratulations again on the approval for your new apartment located at ${address}! My name is Greg and I am one of the Client Support Specialists who will be able to assist you with the remaining steps until your move-in is complete! I am happy to answer any questions you may have, to ensure the best possible communication throughout the process!\n\nIn order to keep things moving, the next steps are to:\n\n${steps}\n\nI look forward to being your new point of contact and assisting you with the rest of your rental process!`;
+}
+
+let _emailDraftDealId = null;
+
+function openEmailDraftModal(dealId) {
+  const deal = db.deals.find(d => d.id === dealId);
+  if (!deal) return;
+  _emailDraftDealId = dealId;
+
+  const emails = (deal.clients || [])
+    .map(c => db.clients.find(cl => cl.id === c.id))
+    .filter(Boolean)
+    .map(c => c.email)
+    .filter(Boolean);
+
+  document.getElementById('email-draft-to').textContent = emails.length ? emails.join(', ') : '(no client emails on file)';
+  document.getElementById('email-draft-subject').textContent = 'Approval for ' + (deal.addressDisplay || '');
+  document.getElementById('email-draft-body').value = generateWelcomeEmail(deal);
+  document.getElementById('email-draft-overlay').classList.add('open');
+}
+
+function closeEmailDraftModal() {
+  document.getElementById('email-draft-overlay').classList.remove('open');
+  _emailDraftDealId = null;
+}
+
+function copyEmailDraftBody() {
+  const body = document.getElementById('email-draft-body').value;
+  navigator.clipboard.writeText(body).then(() => {
+    showToast('✓ Email body copied to clipboard');
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = body;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('✓ Email body copied to clipboard');
+  });
+}
+
+function openEmailInMailClient() {
+  const to = (document.getElementById('email-draft-to').textContent || '').trim();
+  const subject = (document.getElementById('email-draft-subject').textContent || '').trim();
+  const body = document.getElementById('email-draft-body').value;
+  const toParam = (to === '(no client emails on file)') ? '' : encodeURIComponent(to);
+  window.location.href = 'mailto:' + toParam + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+}
+
 // ══════════════════════════════════════
 rebuildFilters();
 applyFilters();
