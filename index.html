@@ -502,7 +502,7 @@ th.sortable:hover { color:var(--text); }
 
 <div id="app" style="display:none;">
 <header id="header">
-  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v2.8</span></div>
+  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v2.9</span></div>
   <nav class="header-nav">
     <button class="nav-tab active" data-page="dashboard"  onclick="showPage('dashboard',this)">Dashboard</button>
     <button class="nav-tab alert-tab" data-page="payments" onclick="showPage('payments',this)">Payments &amp; Paperwork</button>
@@ -630,6 +630,7 @@ th.sortable:hover { color:var(--text); }
     <div class="page-hdr">
       <div><div class="page-title">Clients</div></div>
       <div style="display:flex;gap:10px;">
+        <button class="btn btn-ghost" onclick="copyAllClientEmails()"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy All Emails</button>
         <button class="btn btn-ghost" onclick="triggerCSVImport()"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Import CSV</button>
         <input type="file" id="csv-file-input" accept=".csv" style="display:none;" onchange="handleCSVFile(event)">
         <button class="btn btn-primary" onclick="openObjModal('client')">+ Add Client</button>
@@ -1030,7 +1031,7 @@ let tokenClient  = null;
 let currentUser  = null; // { email, role, name }
 
 const SHEET_HEADERS = {
-  deals:     ['id','status','stage','stageOverride','name','leaseStart','leaseEnd','addressId','addressDisplay','landlordId','landlordName','agentId','agentName','commission','additionalInfo','clients','cosigners','appfeeNeeded','appfeeReceived','appfeeDue','appfeeNotes','fmrNeeded','fmrReceived','fmrDue','fmrNotes','fmrDelivered','brokerNeeded','brokerReceived','brokerDue','brokerNotes','lmrNeeded','lmrReceived','lmrDue','lmrNotes','lmrDelivered','secdepNeeded','secdepReceived','secdepDue','secdepNotes','secdepDelivered','keyfeeNeeded','keyfeeReceived','keyfeeDue','keyfeeNotes','keyfeeDelivered','ncfNeeded','ncfDue','ncfReceived','ncfNotes','ncfDelivered','ncfPartialNotes','leaseReceived','leaseDelivered','leaseNotes','archiveReason','archivedOn','created','paymentLog','lastUpdated'],
+  deals:     ['id','status','stage','stageOverride','name','leaseStart','leaseEnd','addressId','addressDisplay','landlordId','landlordName','agentId','agentName','commission','additionalInfo','clients','cosigners','appfeeNeeded','appfeeReceived','appfeeDue','appfeeNotes','fmrNeeded','fmrReceived','fmrDue','fmrNotes','fmrDelivered','brokerNeeded','brokerReceived','brokerDue','brokerNotes','lmrNeeded','lmrReceived','lmrDue','lmrNotes','lmrDelivered','secdepNeeded','secdepReceived','secdepDue','secdepNotes','secdepDelivered','keyfeeNeeded','keyfeeReceived','keyfeeDue','keyfeeNotes','keyfeeDelivered','ncfNeeded','ncfDue','ncfReceived','ncfNotes','ncfDelivered','ncfPartialNotes','leaseReceived','leaseDelivered','leaseNotes','archiveReason','archivedOn','created','paymentLog'],
   clients:   ['id','first','last','email','phone','notes','cosigners'],
   addresses: ['id','street1','street2','city','state','zip','rent','beds','baths'],
   landlords: ['id','name','email','phone','notes'],
@@ -1389,9 +1390,26 @@ function getPaymentIssues(d) {
   check('LMR', d.lmrNeeded, d.lmrReceived);
   check('Sec Dep', d.secdepNeeded, d.secdepReceived);
   check('Key Fee', d.keyfeeNeeded, d.keyfeeReceived);
-  // Paperwork
+  // Paperwork (kept here for table/filter compatibility)
   if (parseInt(d.ncfNeeded||0) > parseInt(d.ncfReceived||0)) issues.push('Cosigner Form');
   if (d.leaseReceived === 'No') issues.push('Signed Lease');
+  return issues;
+}
+function getPaperworkIssues(d) {
+  const issues = [];
+  if (parseInt(d.ncfNeeded||0) > parseInt(d.ncfReceived||0)) issues.push('Cosigner Form');
+  if (d.leaseReceived === 'No') issues.push('Signed Lease');
+  return issues;
+}
+function getPaymentOnlyIssues(d) {
+  const issues = [];
+  const check = (label, n, r) => { if (parseFloat(n||0)>0 && parseFloat(r||0)<parseFloat(n||0)) issues.push(label); };
+  check('App Fee', d.appfeeNeeded, d.appfeeReceived);
+  check('FMR', d.fmrNeeded, d.fmrReceived);
+  check('Broker Fee', d.brokerNeeded, d.brokerReceived);
+  check('LMR', d.lmrNeeded, d.lmrReceived);
+  check('Sec Dep', d.secdepNeeded, d.secdepReceived);
+  check('Key Fee', d.keyfeeNeeded, d.keyfeeReceived);
   return issues;
 }
 
@@ -1715,7 +1733,8 @@ function openDealDetail(id) {
   const clientsHTML = (d.clients||[]).map(c=>{
     return `<span class="client-chip client-nav-chip" data-client-id="${c.id||''}" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;" title="View client record">${c.name}</span>`;
   }).join('');
-  const payIssues = getPaymentIssues(d);
+  const payIssues = getPaymentOnlyIssues(d);
+  const paperworkIssues = getPaperworkIssues(d);
   const delIssues = getDeliveryIssues(d);
   const pencil = isAdmin() ? `<button class="card-edit-btn" onclick="editDeal('${d.id}')" title="Edit deal"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>` : '';
   const pencilPay = isAdmin() ? `<button class="card-edit-btn" onclick="openPaymentModal('${d.id}')" title="Add payment"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>` : '';
@@ -1741,7 +1760,8 @@ function openDealDetail(id) {
       <div class="detail-hero-name">${d.name||'Untitled Deal'}</div>
       <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;">
         <span class="badge ${d.status==='active'?'badge-active':'badge-draft'}" style="background:rgba(255,255,255,0.15);color:#fff;">${d.status==='active'?'Active':'Draft'}</span>
-        ${payIssues.length?`<span class="badge" style="background:rgba(192,57,43,0.25);color:#fca5a5;">⚠ ${payIssues.length} Payment(s) Needed</span>`:''}
+        ${payIssues.length?`<span class="badge" style="background:rgba(192,57,43,0.25);color:#fca5a5;">⚠ ${payIssues.length} Payment${payIssues.length===1?'':`s`} Needed</span>`:''}
+        ${paperworkIssues.length?`<span class="badge" style="background:rgba(192,57,43,0.25);color:#fca5a5;">⚠ ${paperworkIssues.length} Paperwork Needed</span>`:''}
         ${delIssues.length?`<span class="badge" style="background:rgba(183,134,10,0.25);color:#fde68a;">⚠ ${delIssues.length} Delivery Needed</span>`:''}
       </div>
       <div class="detail-hero-meta">
@@ -1755,7 +1775,7 @@ function openDealDetail(id) {
     </div>
     <div class="detail-grid">
       <div class="detail-card">
-        <div class="detail-card-title"><span>Clients</span><div style="display:flex;align-items:center;gap:6px;">${(()=>{const emails=(d.clients||[]).map(c=>{const cl=db.clients.find(x=>x.id===c.id);return cl&&cl.email?cl.email:'';}).filter(Boolean);return emails.length?'<button onclick="copyDealClientEmails(\''+d.id+'\')" title="Copy client emails" style="display:inline-flex;align-items:center;gap:4px;background:none;border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:11px;font-weight:500;color:var(--muted);cursor:pointer;font-family:var(--font-body);" onmouseover="this.style.background=\'var(--surface2)\'" onmouseout="this.style.background=\'none\'"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy Emails</button>':''})()}${pencil}</div></div>
+        <div class="detail-card-title"><span>Clients</span>${pencil}</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px;">${clientsHTML||'<span style="color:var(--muted);font-size:13px;">None attached</span>'}</div>
       </div>
 
@@ -2751,7 +2771,7 @@ function renderPaperworkRows() {
   }).join('');
 }
 function updatePaperworkRow(id, field, val) {
-  const r = paperworkRows.find(r=>r.id===id); if(r){ r[field]=val; renderPaperworkRows(); }
+  const r = paperworkRows.find(r=>r.id===id); if(r){ r[field]=val; if(field==='client') renderPaperworkRows(); }
 }
 
 async function deletePaymentEntry(dealId, index) {
@@ -3641,17 +3661,13 @@ function showToast(msg) {
   window._toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
 }
 
-function copyDealClientEmails(dealId) {
-  const deal = db.deals.find(d => d.id === dealId);
-  if (!deal) return;
-  const emails = (deal.clients || []).map(c => {
-    const cl = db.clients.find(x => x.id === c.id);
-    return cl && cl.email ? cl.email : '';
-  }).filter(Boolean);
-  if (!emails.length) { showToast('No emails on file for these clients.'); return; }
+function copyAllClientEmails() {
+  const emails = (db.clients || []).map(c => c.email).filter(Boolean);
+  if (!emails.length) { showToast('No client emails on file.'); return; }
   navigator.clipboard.writeText(emails.join(', ')).then(() => {
     showToast('\u2713 Copied ' + emails.length + ' email' + (emails.length !== 1 ? 's' : '') + ' to clipboard');
   }).catch(() => {
+    // Fallback for browsers that block clipboard
     const ta = document.createElement('textarea');
     ta.value = emails.join(', ');
     ta.style.position = 'fixed'; ta.style.opacity = '0';
