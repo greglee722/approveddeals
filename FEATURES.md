@@ -115,24 +115,31 @@ Active filters shown as chips in dashboard header.
 
 ---
 
-## Notarized Cosigner Email Draft (v3.6+)
+## Notarized Cosigner Email Draft (v3.6+, updated v3.8)
 - Button: **Generate Notarized Cosigner** in the deal detail header action row (visible to admin and agent)
 - Reuses the same email draft modal as the welcome email
-- **To**: cosigner emails from `deal.cosigners[].email`
 - **Subject**: `Notarized Cosigner Form for [deal name]`
-- Body includes client first names (joined with "and"), deal name as address, and NCF due date
-- Due date pulled from `deal.ncfDue`; shows blank line if not set
+- Body includes client first names and NCF due date
+- Due date pulled from `deal.ncfDue`; shows `___________` if not set
 - Function: `openNCFDraftModal(dealId)`
+
+**Per-cosigner To/CC (v3.8+):**
+- **1 cosigner**: To is auto-filled with the cosigner's email; CC is auto-filled with the linked client's email (looked up via `cosigner.clientId` → `db.clients`)
+- **2+ cosigners**: A "Cosigner" dropdown appears above the To field; selecting a cosigner updates To and CC dynamically via `selectNCFCosigner(idx)`
+- "Open in Mail Client" includes the CC address in the `mailto:` URI (`&cc=`)
+
+**Client name grammar (v3.8+):**
+- 1 name: `Name`
+- 2 names: `Name1 and Name2`
+- 3+ names: `Name1, Name2, and Name3` (Oxford comma)
 
 ---
 
-## Copy Client Email — Deal Detail (v3.7+)
-- Small copy icon appears **inline next to each client name chip** on the deal detail Clients card
-- Only shown for clients that have an email on file
-- Copies that individual client's email; confirms via toast showing the email address
-- Edit pencil remains top-right of the card header
-- Function: `copyClientEmail(clientId)`
-- **Note:** Prior to v3.7, a single copy button in the card header copied all client emails at once
+## Copy All Client Emails — Deal Detail (v3.0, updated v3.8)
+- A single clipboard icon appears in the **Clients card header** (far right, next to the edit pencil)
+- Clicking it copies all client emails for the deal as a comma-separated list; confirms via toast
+- Function: `copyDealClientEmails(dealId)`
+- **v3.0:** Button was in the card header. **v3.7:** Moved to inline per-client chip. **v3.8:** Moved back to card header as a single copy-all button; per-chip icons removed.
 
 ---
 
@@ -160,7 +167,7 @@ On save:
 ---
 
 ## Deal Detail View — Cards
-- **Clients** — pill/chip list of all attached clients (clickable → client detail); inline copy icon per client (v3.7+); edit pencil top-right (admin only)
+- **Clients** — pill/chip list of all attached clients (clickable → client detail); copy-all emails icon in card header (v3.8+); edit pencil top-right (admin only)
 - **Attachments** — auto-renders when any paymentLog entry has an imageUrl; inline lightbox viewer
 - **Additional Information** — free text notes (shown only if populated)
 - **Payment tiles** — one card per payment type that has `needed > 0`

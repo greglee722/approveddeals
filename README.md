@@ -46,7 +46,7 @@ https://greglee722.github.io/approveddeals
 ```
 
 ## Current Version
-v3.0 (displayed in header next to logo)
+v3.8 (displayed in header next to logo)
 
 ## Version History
 | Version | Changes |
@@ -79,3 +79,4 @@ v3.0 (displayed in header next to logo)
 | v3.5 | AI deal creator auto-creates new address records when address not found in db; expanded JSON schema with street/city/state/zip/beds/baths fields; RE: line in welcome email always uses deal name |
 | v3.6 | Generate Notarized Cosigner email draft — button on deal detail page; pre-fills cosigner emails, client first names, deal name, and NCF due date |
 | v3.7 | Copy email icon moved inline next to each client name chip on deal detail; copies individual client email on click; removed copy button from card header |
+| v3.8 | Client tile: single copy-all emails button in card header (individual per-chip icons removed); NCF email name grammar fix (Oxford comma for 3+); NCF modal per-cosigner To/CC selector — pick cosigner → To auto-filled, CC auto-filled with their linked client's email |

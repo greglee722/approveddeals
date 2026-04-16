@@ -126,15 +126,13 @@ A lightweight toast system is available globally via `showToast(msg)`.
 - Auto-dismisses after 2.5 seconds; calling `showToast()` again resets the timer
 - Use for any lightweight one-off confirmations (clipboard copy, quick saves, etc.)
 
-#### Copy Client Emails — Deal Detail (v3.0+, updated v3.7)
-A small copy icon appears inline next to each client name chip on the deal detail Clients card.
+#### Copy All Client Emails — Deal Detail (v3.0+, updated v3.8)
+A single clipboard icon in the Clients card header copies all client emails for the deal.
 
-- Only renders per-client when that client has an email on file (`clientRec.email`)
-- Function: `copyClientEmail(clientId)` — looks up client in `db.clients`, copies their email, shows toast with the address
-- `copyDealClientEmails(dealId)` still exists for copying all client emails at once (used internally)
+- Button placed far-right in the card header, next to the edit pencil
+- Function: `copyDealClientEmails(dealId)` — collects all client emails from the deal, joins with `, `, copies to clipboard, shows toast
 - Uses `navigator.clipboard.writeText()` with `execCommand('copy')` fallback
-- `event.stopPropagation()` prevents the client nav chip click from firing when copying
-- **v3.0:** Copy button was in the card header. **v3.7:** Moved inline per-client chip; card header now only has the edit pencil.
+- **v3.0:** Button in card header. **v3.7:** Moved inline per-client chip. **v3.8:** Moved back to card header as single copy-all icon; per-chip copy icons removed.
 
 #### Welcome Email Draft (v3.3+)
 A **"Generate Welcome Email"** button appears in the deal detail header action row for both admin and agent roles. Clicking it calls `openEmailDraftModal(dealId)`.
@@ -153,16 +151,26 @@ Key implementation details:
 - **v3.4:** `resolveDealAddress()` falls back to `deal.name` if `addressDisplay` and `addressId` are both empty
 - **v3.5:** RE: line in the mailing address block always uses `deal.name` (not the address)
 
-#### Notarized Cosigner Email Draft (v3.6+)
+#### Notarized Cosigner Email Draft (v3.6+, updated v3.8)
 A **"Generate Notarized Cosigner"** button appears in the deal detail header action row for both admin and agent roles. Clicking it calls `openNCFDraftModal(dealId)`.
 
 Key implementation details:
 - Reuses the same `#email-draft-overlay` modal as the welcome email
-- **To**: cosigner emails pulled from `deal.cosigners[].email`
 - **Subject**: `Notarized Cosigner Form for [deal.name]`
-- Client first names joined with `" and "` (e.g. "Greg and Bob") — first names only
 - Due date pulled from `deal.ncfDue` via `formatEmailDate()`; shows `___________` if not set
 - Address in body uses `deal.name` as primary value
+
+**Per-cosigner To/CC (v3.8+):**
+- Modal has two new elements: `#email-draft-cosigner-row` (dropdown, hidden by default) and `#email-draft-cc-row` (CC field, hidden by default)
+- `openEmailDraftModal()` (Welcome Email) explicitly hides both rows
+- 1 cosigner: rows show without dropdown; To = cosigner email, CC = matched client email via `cosigner.clientId` → `db.clients`
+- 2+ cosigners: dropdown renders in `#email-draft-cosigner-select`; `selectNCFCosigner(idx)` updates To and CC on selection
+- `openEmailInMailClient()` reads `#email-draft-cc` and appends `&cc=` to the `mailto:` URI if non-empty
+
+**Client name grammar (v3.8+):**
+- 1 name: `Name`
+- 2 names: `Name1 and Name2`
+- 3+ names: `Name1, Name2, and Name3` (Oxford comma via `.slice(0,-1).join(', ') + ', and ' + last`)
 
 #### lastUpdated Persistence (v2.8+)
 `lastUpdated` is now included in `SHEET_HEADERS.deals` as the last field, mapping to column **BH** in the Google Sheet.
@@ -217,6 +225,7 @@ Increment the minor version (v3.0 → v3.1) for each new output, regardless of h
 | v3.5 | AI deal creator auto-creates address records via expanded JSON schema (addressStreet1/2/City/State/Zip/Rent/Beds/Baths); fuzzy match prevents duplicates; RE: line uses `deal.name` |
 | v3.6 | Notarized Cosigner email draft — `openNCFDraftModal(dealId)`; reuses email draft modal; populates cosigner emails, client first names, deal name, NCF due date |
 | v3.7 | Inline copy icon per client chip — `copyClientEmail(clientId)`; copy button removed from Clients card header |
+| v3.8 | Client tile: single copy-all icon in card header; NCF name grammar fix (Oxford comma); NCF modal per-cosigner To/CC selector + CC field in mailto |
 
 ## Google Sheets Column Map (deals tab)
 | Column | Header | Notes |
