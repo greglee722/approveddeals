@@ -502,7 +502,7 @@ th.sortable:hover { color:var(--text); }
 
 <div id="app" style="display:none;">
 <header id="header">
-  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v3.4</span></div>
+  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v3.5</span></div>
   <nav class="header-nav">
     <button class="nav-tab active" data-page="dashboard"  onclick="showPage('dashboard',this)">Dashboard</button>
     <button class="nav-tab alert-tab" data-page="payments" onclick="showPage('payments',this)">Payments &amp; Paperwork</button>
@@ -3374,6 +3374,7 @@ CRITICAL RULES:
 4. For clients: extract ALL client names/emails into the "clients" array — even if they are new.
 5. For landlords: put the landlord name in "landlordName" even if not in the existing list.
 6. Match existing records by comparing names case-insensitively.
+7. For addresses: if the address is NOT in the available list, still fill addressDisplay and the addressStreet1/City/State/Zip fields so a new address record can be created automatically.
 
 Available addresses:
 ${addressList || 'None yet'}
@@ -3391,7 +3392,15 @@ Return this exact JSON structure:
 {
   "name": "deal name — use address if not specified",
   "addressId": "existing address id if matched, else ''",
-  "addressDisplay": "full address string",
+  "addressDisplay": "full address string (always fill if address is mentioned)",
+  "addressStreet1": "street address line 1 if new address, else ''",
+  "addressStreet2": "unit/apt number if present, else ''",
+  "addressCity": "city if new address, else ''",
+  "addressState": "state abbreviation if new address, else ''",
+  "addressZip": "zip code if new address, else ''",
+  "addressRent": "monthly rent as numeric string if known, else ''",
+  "addressBeds": "number of bedrooms if known, else ''",
+  "addressBaths": "number of bathrooms if known, else ''",
   "leaseStart": "YYYY-MM-DD or ''",
   "leaseEnd": "YYYY-MM-DD or ''",
   "landlordId": "existing landlord id if matched, else ''",
@@ -3494,12 +3503,39 @@ async function applyAIDeal(deal) {
   sv('df-commission', deal.commission);
   sv('df-additional-info', deal.additionalInfo);
 
-  // Address
+  // Address — match existing, auto-create if new, or just fill display
   if (deal.addressId) {
     document.getElementById('df-address-id').value = deal.addressId;
     document.getElementById('dd-address-input').value = deal.addressDisplay || '';
   } else if (deal.addressDisplay) {
-    document.getElementById('dd-address-input').value = deal.addressDisplay;
+    // Try to find a fuzzy match in existing addresses before creating
+    const normalizedNew = (deal.addressStreet1 || deal.addressDisplay || '').toLowerCase().trim();
+    const existingAddr = db.addresses.find(a =>
+      normalizedNew && (a.street1 || '').toLowerCase().trim() === normalizedNew
+    ) || db.addresses.find(a =>
+      normalizedNew.length >= 6 && (a.street1 || '').toLowerCase().includes(normalizedNew.substring(0, 6))
+    );
+    if (existingAddr) {
+      document.getElementById('df-address-id').value = existingAddr.id;
+      document.getElementById('dd-address-input').value = deal.addressDisplay;
+    } else {
+      const newAddrId = 'a_' + Date.now();
+      const newAddress = {
+        id: newAddrId,
+        street1: deal.addressStreet1 || deal.addressDisplay || '',
+        street2: deal.addressStreet2 || '',
+        city: deal.addressCity || '',
+        state: deal.addressState || '',
+        zip: deal.addressZip || '',
+        rent: deal.addressRent || '',
+        beds: deal.addressBeds || '',
+        baths: deal.addressBaths || ''
+      };
+      db.addresses.push(newAddress);
+      await saveRecord('addresses', newAddress);
+      document.getElementById('df-address-id').value = newAddrId;
+      document.getElementById('dd-address-input').value = deal.addressDisplay;
+    }
     if (!deal.name) document.getElementById('df-name').value = deal.addressDisplay;
   }
 
@@ -3907,6 +3943,7 @@ function resolveDealAddress(deal) {
     const a = db.addresses.find(x => x.id === deal.addressId);
     if (a) return [a.street1, a.street2, a.city, a.state].filter(Boolean).join(', ');
   }
+  if (deal.name) return deal.name;
   return '___________';
 }
 
@@ -3945,7 +3982,7 @@ function generateWelcomeEmail(deal) {
   if (remainingLines.length) {
     steps += `${stepNum}. Pay remaining funds\n\nAs per the payment schedule (pre-lease agreement) that you signed at the time of application, the remaining funds (in the form of a cashier's check or money order) that are due are:\n\n`;
     steps += remainingLines.join('\n\n') + '\n\n';
-    steps += `All payments need to be made separately and in the form of a cashier's check or money order (certified funds). Please be advised that we are unable to accept personal checks or checks made payable to New Wave. If you want to mail us the payments, please send via Certified Mail/Priority so that you have a receipt with the tracking information.\n\nYou can certify mail or deliver the check to:\n\nNew Wave Boston Real Estate\n164 Newbury St, 4th Fl\nBoston, MA 02116\nRE: ${address}\n\n`;
+    steps += `All payments need to be made separately and in the form of a cashier's check or money order (certified funds). Please be advised that we are unable to accept personal checks or checks made payable to New Wave. If you want to mail us the payments, please send via Certified Mail/Priority so that you have a receipt with the tracking information.\n\nYou can certify mail or deliver the check to:\n\nNew Wave Boston Real Estate\n164 Newbury St, 4th Fl\nBoston, MA 02116\nRE: ${deal.name || address}\n\n`;
     stepNum++;
   }
 
