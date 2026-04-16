@@ -502,7 +502,7 @@ th.sortable:hover { color:var(--text); }
 
 <div id="app" style="display:none;">
 <header id="header">
-  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v3.7</span></div>
+  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v3.8</span></div>
   <nav class="header-nav">
     <button class="nav-tab active" data-page="dashboard"  onclick="showPage('dashboard',this)">Dashboard</button>
     <button class="nav-tab alert-tab" data-page="payments" onclick="showPage('payments',this)">Payments &amp; Paperwork</button>
@@ -947,9 +947,17 @@ th.sortable:hover { color:var(--text); }
       <div class="mini-title" style="margin-bottom:0;">Welcome Email Draft</div>
       <button class="modal-close" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);" onclick="closeEmailDraftModal()">×</button>
     </div>
+    <div id="email-draft-cosigner-row" style="display:none;margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:4px;">Cosigner</div>
+      <select id="email-draft-cosigner-select" onchange="selectNCFCosigner(this.value)" style="width:100%;font-size:13px;color:var(--text);padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-family:var(--font-body);"></select>
+    </div>
     <div style="margin-bottom:12px;">
       <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:4px;">To</div>
       <div id="email-draft-to" style="font-size:13px;color:var(--text);padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;word-break:break-all;"></div>
+    </div>
+    <div id="email-draft-cc-row" style="display:none;margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:4px;">CC</div>
+      <div id="email-draft-cc" style="font-size:13px;color:var(--text);padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;word-break:break-all;"></div>
     </div>
     <div style="margin-bottom:12px;">
       <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:4px;">Subject</div>
@@ -1758,17 +1766,13 @@ function openDealDetail(id) {
     <div style="margin-top:2px;">${c.name||'—'} &nbsp;·&nbsp; ${c.email||'—'}</div></div>`).join('');
   const copyIconSvg = `<svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
   const clientsHTML = (d.clients||[]).map(c=>{
-    const clientRec = db.clients.find(cl => cl.id === c.id);
-    const copyBtn = (clientRec && clientRec.email)
-      ? `<button onclick="event.stopPropagation();copyClientEmail('${clientRec.id}')" title="Copy email" style="display:inline-flex;align-items:center;background:none;border:none;cursor:pointer;color:var(--muted);padding:0 0 0 4px;vertical-align:middle;opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">${copyIconSvg}</button>`
-      : '';
-    return `<span style="display:inline-flex;align-items:center;gap:0;"><span class="client-chip client-nav-chip" data-client-id="${c.id||''}" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;" title="View client record">${c.name}</span>${copyBtn}</span>`;
+    return `<span class="client-chip client-nav-chip" data-client-id="${c.id||''}" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;" title="View client record">${c.name}</span>`;
   }).join('');
   const payIssues = getPaymentOnlyIssues(d);
   const paperworkIssues = getPaperworkIssues(d);
   const delIssues = getDeliveryIssues(d);
   const pencil = isAdmin() ? `<button class="card-edit-btn" onclick="editDeal('${d.id}')" title="Edit deal"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>` : '';
-  const copyEmailsBtn = '';
+  const copyEmailsBtn = `<button onclick="copyDealClientEmails('${d.id}')" title="Copy all client emails" style="display:inline-flex;align-items:center;background:none;border:none;cursor:pointer;color:var(--muted);padding:0;opacity:0.7;margin-left:auto;margin-right:4px;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">${copyIconSvg}</button>`;
   const pencilPay = isAdmin() ? `<button class="card-edit-btn" onclick="openPaymentModal('${d.id}')" title="Add payment"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>` : '';
 
   el.innerHTML = `
@@ -4024,6 +4028,8 @@ function openEmailDraftModal(dealId) {
   document.getElementById('email-draft-to').textContent = emails.length ? emails.join(', ') : '(no client emails on file)';
   document.getElementById('email-draft-subject').textContent = 'Approval for ' + resolveDealAddress(deal);
   document.getElementById('email-draft-body').value = generateWelcomeEmail(deal);
+  document.getElementById('email-draft-cosigner-row').style.display = 'none';
+  document.getElementById('email-draft-cc-row').style.display = 'none';
   document.getElementById('email-draft-overlay').classList.add('open');
 }
 
@@ -4051,8 +4057,11 @@ function openEmailInMailClient() {
   const to = (document.getElementById('email-draft-to').textContent || '').trim();
   const subject = (document.getElementById('email-draft-subject').textContent || '').trim();
   const body = document.getElementById('email-draft-body').value;
+  const ccEl = document.getElementById('email-draft-cc');
+  const cc = ccEl ? (ccEl.textContent || '').trim() : '';
   const toParam = (to === '(no client emails on file)' || to === '(no cosigner emails on file)') ? '' : encodeURIComponent(to);
-  window.location.href = 'mailto:' + toParam + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+  const ccParam = cc ? '&cc=' + encodeURIComponent(cc) : '';
+  window.location.href = 'mailto:' + toParam + '?subject=' + encodeURIComponent(subject) + ccParam + '&body=' + encodeURIComponent(body);
 }
 
 function openNCFDraftModal(dealId) {
@@ -4067,13 +4076,20 @@ function openNCFDraftModal(dealId) {
     .filter(Boolean)
     .map(c => c.first)
     .filter(Boolean);
-  const clientNames = clientFirstNames.length ? clientFirstNames.join(' and ') : '___________';
+  let clientNames;
+  if (!clientFirstNames.length) {
+    clientNames = '___________';
+  } else if (clientFirstNames.length === 1) {
+    clientNames = clientFirstNames[0];
+  } else if (clientFirstNames.length === 2) {
+    clientNames = clientFirstNames[0] + ' and ' + clientFirstNames[1];
+  } else {
+    clientNames = clientFirstNames.slice(0, -1).join(', ') + ', and ' + clientFirstNames[clientFirstNames.length - 1];
+  }
 
   const dueDate = deal.ncfDue ? formatEmailDate(deal.ncfDue) : '___________';
 
-  const cosignerEmails = (deal.cosigners || [])
-    .map(c => c.email)
-    .filter(Boolean);
+  const cosigners = (deal.cosigners || []);
 
   const body =
     'Hello,\n\n' +
@@ -4084,10 +4100,48 @@ function openNCFDraftModal(dealId) {
     'Boston, MA 02116\n\n' +
     'Can you please return the form by ' + dueDate + '? Please let me know if you have any questions!';
 
-  document.getElementById('email-draft-to').textContent = cosignerEmails.length ? cosignerEmails.join(', ') : '(no cosigner emails on file)';
   document.getElementById('email-draft-subject').textContent = 'Notarized Cosigner Form for ' + address;
   document.getElementById('email-draft-body').value = body;
+
+  const cosignerRow = document.getElementById('email-draft-cosigner-row');
+  const ccRow = document.getElementById('email-draft-cc-row');
+
+  if (cosigners.length > 1) {
+    // Populate dropdown
+    const sel = document.getElementById('email-draft-cosigner-select');
+    sel.innerHTML = cosigners.map((c, i) =>
+      `<option value="${i}">${c.name || c.email || 'Cosigner ' + (i+1)} (for ${c.clientName || '—'})</option>`
+    ).join('');
+    cosignerRow.style.display = 'block';
+    ccRow.style.display = 'block';
+    // Pre-select first cosigner
+    sel.value = '0';
+    selectNCFCosigner(0);
+  } else if (cosigners.length === 1) {
+    const c = cosigners[0];
+    cosignerRow.style.display = 'none';
+    ccRow.style.display = 'block';
+    document.getElementById('email-draft-to').textContent = c.email || '(no cosigner email on file)';
+    const clientRec = c.clientId ? db.clients.find(cl => cl.id === c.clientId) : null;
+    document.getElementById('email-draft-cc').textContent = (clientRec && clientRec.email) ? clientRec.email : '';
+  } else {
+    cosignerRow.style.display = 'none';
+    ccRow.style.display = 'none';
+    document.getElementById('email-draft-to').textContent = '(no cosigner emails on file)';
+  }
+
   document.getElementById('email-draft-overlay').classList.add('open');
+}
+
+function selectNCFCosigner(idx) {
+  const dealId = _emailDraftDealId;
+  const deal = dealId ? db.deals.find(d => d.id === dealId) : null;
+  if (!deal) return;
+  const c = (deal.cosigners || [])[parseInt(idx)];
+  if (!c) return;
+  document.getElementById('email-draft-to').textContent = c.email || '(no cosigner email on file)';
+  const clientRec = c.clientId ? db.clients.find(cl => cl.id === c.clientId) : null;
+  document.getElementById('email-draft-cc').textContent = (clientRec && clientRec.email) ? clientRec.email : '';
 }
 
 // ══════════════════════════════════════
