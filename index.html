@@ -502,7 +502,7 @@ th.sortable:hover { color:var(--text); }
 
 <div id="app" style="display:none;">
 <header id="header">
-  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v3.3</span></div>
+  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v3.4</span></div>
   <nav class="header-nav">
     <button class="nav-tab active" data-page="dashboard"  onclick="showPage('dashboard',this)">Dashboard</button>
     <button class="nav-tab alert-tab" data-page="payments" onclick="showPage('payments',this)">Payments &amp; Paperwork</button>
@@ -3901,6 +3901,15 @@ function formatCurrency(val) {
   return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function resolveDealAddress(deal) {
+  if (deal.addressDisplay) return deal.addressDisplay;
+  if (deal.addressId) {
+    const a = db.addresses.find(x => x.id === deal.addressId);
+    if (a) return [a.street1, a.street2, a.city, a.state].filter(Boolean).join(', ');
+  }
+  return '___________';
+}
+
 function generateWelcomeEmail(deal) {
   const clientFirstNames = (deal.clients || [])
     .map(c => db.clients.find(cl => cl.id === c.id))
@@ -3908,7 +3917,7 @@ function generateWelcomeEmail(deal) {
     .map(c => c.first)
     .filter(Boolean);
   const greeting = clientFirstNames.length ? clientFirstNames.join(' & ') : 'there';
-  const address = deal.addressDisplay || '___________';
+  const address = resolveDealAddress(deal);
   const landlord = deal.landlordName || '___________';
 
   let steps = '';
@@ -3959,7 +3968,7 @@ function openEmailDraftModal(dealId) {
     .filter(Boolean);
 
   document.getElementById('email-draft-to').textContent = emails.length ? emails.join(', ') : '(no client emails on file)';
-  document.getElementById('email-draft-subject').textContent = 'Approval for ' + (deal.addressDisplay || '');
+  document.getElementById('email-draft-subject').textContent = 'Approval for ' + resolveDealAddress(deal);
   document.getElementById('email-draft-body').value = generateWelcomeEmail(deal);
   document.getElementById('email-draft-overlay').classList.add('open');
 }
