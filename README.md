@@ -46,7 +46,7 @@ https://greglee722.github.io/approveddeals
 ```
 
 ## Current Version
-v3.8 (displayed in header next to logo)
+v3.9 (displayed in header next to logo)
 
 ## Version History
 | Version | Changes |
@@ -80,3 +80,4 @@ v3.8 (displayed in header next to logo)
 | v3.6 | Generate Notarized Cosigner email draft — button on deal detail page; pre-fills cosigner emails, client first names, deal name, and NCF due date |
 | v3.7 | Copy email icon moved inline next to each client name chip on deal detail; copies individual client email on click; removed copy button from card header |
 | v3.8 | Client tile: single copy-all emails button in card header (individual per-chip icons removed); NCF email name grammar fix (Oxford comma for 3+); NCF modal per-cosigner To/CC selector — pick cosigner → To auto-filled, CC auto-filled with their linked client's email |
+| v3.9 | Split Payments & Paperwork Log into two separate stacked tables (Payments Log / Paperwork Log); edit modal now hides tabs and Add Row button — shows only the single entry's fields based on type (payment or paperwork) |

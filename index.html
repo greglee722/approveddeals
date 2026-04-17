@@ -502,7 +502,7 @@ th.sortable:hover { color:var(--text); }
 
 <div id="app" style="display:none;">
 <header id="header">
-  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v3.8</span></div>
+  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v3.9</span></div>
   <nav class="header-nav">
     <button class="nav-tab active" data-page="dashboard"  onclick="showPage('dashboard',this)">Dashboard</button>
     <button class="nav-tab alert-tab" data-page="payments" onclick="showPage('payments',this)">Payments &amp; Paperwork</button>
@@ -888,7 +888,7 @@ th.sortable:hover { color:var(--text); }
       <button class="modal-close" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);" onclick="closePaymentModal()">×</button>
     </div>
     <!-- TABS -->
-    <div style="display:flex;gap:0;margin-bottom:20px;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;">
+    <div id="payment-modal-tabs" style="display:flex;gap:0;margin-bottom:20px;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;">
       <button id="tab-payment" onclick="switchPaymentTab('payment')"
         style="flex:1;padding:10px;background:#000;color:#fff;border:none;cursor:pointer;font-family:var(--font-body);font-size:13px;font-weight:600;transition:all 0.15s;">
         Payment
@@ -909,7 +909,7 @@ th.sortable:hover { color:var(--text); }
         <div></div>
       </div>
       <div id="payment-rows"></div>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="addPaymentRow()">
+      <button id="payment-add-row-btn" class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="addPaymentRow()">
         <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
         Add Row
       </button>
@@ -925,7 +925,7 @@ th.sortable:hover { color:var(--text); }
         <div></div>
       </div>
       <div id="paperwork-rows"></div>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="addPaperworkRow()">
+      <button id="paperwork-add-row-btn" class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="addPaperworkRow()">
         <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
         Add Row
       </button>
@@ -1775,6 +1775,36 @@ function openDealDetail(id) {
   const copyEmailsBtn = `<button onclick="copyDealClientEmails('${d.id}')" title="Copy all client emails" style="display:inline-flex;align-items:center;background:none;border:none;cursor:pointer;color:var(--muted);padding:0;opacity:0.7;margin-left:auto;margin-right:4px;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">${copyIconSvg}</button>`;
   const pencilPay = isAdmin() ? `<button class="card-edit-btn" onclick="openPaymentModal('${d.id}')" title="Add payment"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>` : '';
 
+  const _logThL = 'text-align:left;padding:7px 10px;font-size:11px;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);border-bottom:1px solid var(--border);';
+  const _logThR = 'text-align:right;padding:7px 10px;font-size:11px;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);border-bottom:1px solid var(--border);';
+  const _logThEnd = 'border-bottom:1px solid var(--border);width:40px;';
+  const _sortedLog = d.paymentLog && d.paymentLog.length ? [...d.paymentLog].sort((a,b)=>a.date<b.date?1:-1) : [];
+  const _logViewBtn = (url) => url ? ' <a href="'+url+'" target="_blank" style="display:inline-flex;align-items:center;gap:3px;color:#000;font-weight:500;font-size:11px;text-decoration:none;background:var(--surface2);border:1px solid var(--border);padding:1px 7px;border-radius:4px;margin-left:4px;" onmouseover=\'this.style.background="var(--border)"\' onmouseout=\'this.style.background="var(--surface2)"\'>&#128206; View</a>' : '';
+  const _logEditBtn = (idx) => isAdmin() ? '<button onclick="editPaymentEntry(\''+d.id+'\','+idx+')" title="Edit entry" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:2px 5px;border-radius:4px;line-height:1;margin-right:2px;" onmouseover="this.style.color=\'#000\';this.style.background=\'var(--surface2)\'" onmouseout="this.style.color=\'var(--muted)\';this.style.background=\'none\'"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>' : '';
+  const _logDelBtn = (idx) => '<button onclick="deletePaymentEntry(\''+d.id+'\','+idx+')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;line-height:1;padding:2px 6px;border-radius:4px;" onmouseover="this.style.color=\'#c0392b\';this.style.background=\'#fdf0ef\'" onmouseout="this.style.color=\'var(--muted)\';this.style.background=\'none\'">&#215;</button>';
+  const paymentsLogHTML = (() => {
+    const rows = _sortedLog.filter(p=>p.type!=='Notarized Cosigner Form');
+    if (!rows.length) return '';
+    const body = rows.map(p => {
+      const i = _sortedLog.indexOf(p);
+      const detail = (p.notes||'') + _logViewBtn(p.imageUrl);
+      return '<tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 10px;font-weight:500;">'+(p.client||'—')+'</td><td style="padding:8px 10px;">'+(p.type||'—')+'</td><td style="padding:8px 10px;color:var(--muted);font-size:12px;">'+detail+'</td><td style="padding:8px 10px;text-align:right;font-family:var(--font-head);">'+(p.amount?'$'+parseFloat(p.amount).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'—')+'</td><td style="padding:8px 10px;text-align:right;color:var(--muted);">'+(p.date||'—')+'</td><td style="padding:8px 6px;text-align:center;white-space:nowrap;">'+_logEditBtn(i)+_logDelBtn(i)+'</td></tr>';
+    }).join('');
+    return '<div class="detail-card detail-full"><div class="detail-card-title">Payments Log</div><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr><th style="'+_logThL+'">Client</th><th style="'+_logThL+'">Type</th><th style="'+_logThL+'">Details</th><th style="'+_logThR+'">Amount</th><th style="'+_logThR+'">Date</th><th style="'+_logThEnd+'"></th></tr></thead><tbody>'+body+'</tbody></table></div>';
+  })();
+  const paperworkLogHTML = (() => {
+    const rows = _sortedLog.filter(p=>p.type==='Notarized Cosigner Form');
+    if (!rows.length) return '';
+    const body = rows.map(p => {
+      const i = _sortedLog.indexOf(p);
+      const cosignerPart = p.cosigner ? 'Cosigner: '+p.cosigner : '';
+      const notesPart = p.notes ? (p.cosigner?' · ':'')+p.notes : '';
+      const detail = cosignerPart + notesPart + _logViewBtn(p.imageUrl);
+      return '<tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 10px;font-weight:500;">'+(p.client||'—')+'</td><td style="padding:8px 10px;">'+(p.type||'—')+'</td><td style="padding:8px 10px;color:var(--muted);font-size:12px;">'+detail+'</td><td style="padding:8px 10px;text-align:right;color:var(--muted);">'+(p.date||'—')+'</td><td style="padding:8px 6px;text-align:center;white-space:nowrap;">'+_logEditBtn(i)+_logDelBtn(i)+'</td></tr>';
+    }).join('');
+    return '<div class="detail-card detail-full"><div class="detail-card-title">Paperwork Log</div><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr><th style="'+_logThL+'">Client</th><th style="'+_logThL+'">Type</th><th style="'+_logThL+'">Details</th><th style="'+_logThR+'">Date</th><th style="'+_logThEnd+'"></th></tr></thead><tbody>'+body+'</tbody></table></div>';
+  })();
+
   el.innerHTML = `
     <div class="detail-back" onclick="closeDetail()">
       <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
@@ -1903,29 +1933,8 @@ function openDealDetail(id) {
         <div class="detail-row"><span class="detail-key">Delivered?</span><span class="detail-val">${yn(d.leaseDelivered)}</span></div>
         ${d.leaseNotes?`<div style="font-size:12px;color:var(--muted);margin-top:4px;">${d.leaseNotes}</div>`:''}
       </div>`:''}
-      ${(d.paymentLog&&d.paymentLog.length)?`<div class="detail-card detail-full">
-        <div class="detail-card-title">Payments &amp; Paperwork Log</div>
-        <table style="width:100%;border-collapse:collapse;font-size:13px;">
-          <thead><tr>
-            <th style="text-align:left;padding:7px 10px;font-size:11px;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);border-bottom:1px solid var(--border);">Client</th>
-            <th style="text-align:left;padding:7px 10px;font-size:11px;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);border-bottom:1px solid var(--border);">Type</th>
-            <th style="text-align:left;padding:7px 10px;font-size:11px;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);border-bottom:1px solid var(--border);">Details</th>
-            <th style="text-align:right;padding:7px 10px;font-size:11px;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);border-bottom:1px solid var(--border);">Amount</th>
-            <th style="text-align:right;padding:7px 10px;font-size:11px;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);border-bottom:1px solid var(--border);">Date</th>
-            <th style="border-bottom:1px solid var(--border);width:40px;"></th>
-          </tr></thead>
-          <tbody>
-            ${[...d.paymentLog].sort((a,b)=>a.date<b.date?1:-1).map((p,i)=>`<tr style="border-bottom:1px solid var(--border);">
-              <td style="padding:8px 10px;font-weight:500;">${p.client||'—'}</td>
-              <td style="padding:8px 10px;">${p.type||'—'}</td>
-              <td style="padding:8px 10px;color:var(--muted);font-size:12px;">${p.cosigner?'Cosigner: '+p.cosigner:''}${p.cosigner&&p.notes?' · ':''}${p.notes||''}${p.imageUrl?' <a href="'+p.imageUrl+'" target="_blank" style="display:inline-flex;align-items:center;gap:3px;color:#000;font-weight:500;font-size:11px;text-decoration:none;background:var(--surface2);border:1px solid var(--border);padding:1px 7px;border-radius:4px;margin-left:4px;" onmouseover=\'this.style.background=\"var(--border)\"\' onmouseout=\'this.style.background=\"var(--surface2)\"\'>📎 View</a>':''}</td>
-              <td style="padding:8px 10px;text-align:right;font-family:var(--font-head);">${p.amount?'$'+parseFloat(p.amount).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}</td>
-              <td style="padding:8px 10px;text-align:right;color:var(--muted);">${p.date||'—'}</td>
-              <td style="padding:8px 6px;text-align:center;white-space:nowrap;">${isAdmin()?`<button onclick="editPaymentEntry('${d.id}',${i})" title="Edit entry" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:2px 5px;border-radius:4px;line-height:1;margin-right:2px;" onmouseover="this.style.color='#000';this.style.background='var(--surface2)'" onmouseout="this.style.color='var(--muted)';this.style.background='none'"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`:''}<button onclick="deletePaymentEntry('${d.id}',${i})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;line-height:1;padding:2px 6px;border-radius:4px;" onmouseover="this.style.color='#c0392b';this.style.background='#fdf0ef'" onmouseout="this.style.color='var(--muted)';this.style.background='none'">×</button></td>
-            </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>`:'' }
+      ${paymentsLogHTML}
+      ${paperworkLogHTML}
     </div>`;
 }
 
@@ -2633,6 +2642,9 @@ function openPaymentModal(dealId) {
   editingPaymentEntry = null;
   document.getElementById('payment-modal-save-btn').textContent = 'Save';
   document.getElementById('payment-modal-title').textContent = 'Log Payment or Paperwork';
+  document.getElementById('payment-modal-tabs').style.display = '';
+  document.getElementById('payment-add-row-btn').style.display = '';
+  document.getElementById('paperwork-add-row-btn').style.display = '';
   addPaymentRow();
   switchPaymentTab('payment');
   document.getElementById('payment-overlay').classList.add('open');
@@ -2641,6 +2653,9 @@ function closePaymentModal() {
   document.getElementById('payment-overlay').classList.remove('open');
   paymentDealId = null; paymentRows = []; paperworkRows = [];
   editingPaymentEntry = null;
+  document.getElementById('payment-modal-tabs').style.display = '';
+  document.getElementById('payment-add-row-btn').style.display = '';
+  document.getElementById('paperwork-add-row-btn').style.display = '';
 }
 function switchPaymentTab(tab) {
   activePaymentTab = tab;
@@ -2859,18 +2874,25 @@ function editPaymentEntry(dealId, index) {
   const entry = sorted[index];
   if (!entry) return;
   const origIdx = deal.paymentLog.findIndex(p=>p.client===entry.client&&p.type===entry.type&&p.amount===entry.amount&&p.date===entry.date);
-  // Open modal in edit mode
   paymentDealId = dealId;
   paymentRows = []; paperworkRows = []; paymentRowId = 0;
-  activePaymentTab = 'payment';
   editingPaymentEntry = { origIdx, entry };
-  // Pre-fill a single row with the existing entry
-  paymentRows.push({ id: ++paymentRowId, client: entry.client||'', type: entry.type||'', amount: entry.amount||'', notes: entry.notes||'', imageUrl: entry.imageUrl||'' });
-  switchPaymentTab('payment');
-  // Update modal title and save button to reflect edit mode
-  document.getElementById('payment-modal-title').textContent = 'Edit Payment Entry';
+  document.getElementById('payment-modal-tabs').style.display = 'none';
+  document.getElementById('payment-add-row-btn').style.display = 'none';
+  document.getElementById('paperwork-add-row-btn').style.display = 'none';
+  document.getElementById('payment-modal-title').textContent = 'Edit Entry';
   document.getElementById('payment-modal-save-btn').textContent = 'Update';
-  renderPaymentRows();
+  if (entry.type === 'Notarized Cosigner Form') {
+    activePaymentTab = 'paperwork';
+    paperworkRows.push({ id: ++paymentRowId, client: entry.client||'', cosigner: entry.cosigner||'', notes: entry.notes||'', imageUrl: entry.imageUrl||'' });
+    switchPaymentTab('paperwork');
+    renderPaperworkRows();
+  } else {
+    activePaymentTab = 'payment';
+    paymentRows.push({ id: ++paymentRowId, client: entry.client||'', type: entry.type||'', amount: entry.amount||'', notes: entry.notes||'', imageUrl: entry.imageUrl||'' });
+    switchPaymentTab('payment');
+    renderPaymentRows();
+  }
   document.getElementById('payment-overlay').classList.add('open');
 }
 
@@ -2908,8 +2930,13 @@ async function savePayments() {
     if (!paperworkRows.length) { alert('Please add at least one paperwork row.'); return; }
     for (const r of paperworkRows) {
       if (!r.client) { alert('Please select a client for each row.'); return; }
-      deal.ncfReceived = String(parseInt(deal.ncfReceived||0) + 1);
-      deal.paymentLog.push({ client:r.client, type:'Notarized Cosigner Form', cosigner:r.cosigner||'', amount:'', date:today, notes:r.notes||'', imageUrl:r.imageUrl||'' });
+      if (editingPaymentEntry) {
+        const { origIdx, entry } = editingPaymentEntry;
+        deal.paymentLog[origIdx] = { client:r.client, type:'Notarized Cosigner Form', cosigner:r.cosigner||'', amount:'', date:entry.date||today, notes:r.notes||'', imageUrl:r.imageUrl||entry.imageUrl||'' };
+      } else {
+        deal.ncfReceived = String(parseInt(deal.ncfReceived||0) + 1);
+        deal.paymentLog.push({ client:r.client, type:'Notarized Cosigner Form', cosigner:r.cosigner||'', amount:'', date:today, notes:r.notes||'', imageUrl:r.imageUrl||'' });
+      }
     }
   }
 

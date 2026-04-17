@@ -226,6 +226,7 @@ Increment the minor version (v3.0 → v3.1) for each new output, regardless of h
 | v3.6 | Notarized Cosigner email draft — `openNCFDraftModal(dealId)`; reuses email draft modal; populates cosigner emails, client first names, deal name, NCF due date |
 | v3.7 | Inline copy icon per client chip — `copyClientEmail(clientId)`; copy button removed from Clients card header |
 | v3.8 | Client tile: single copy-all icon in card header; NCF name grammar fix (Oxford comma); NCF modal per-cosigner To/CC selector + CC field in mailto |
+| v3.9 | Split payment log into Payments Log + Paperwork Log tables; edit modal strips tabs/Add Row — single-entry edit only, type-aware (payment vs NCF) |
 
 ## Google Sheets Column Map (deals tab)
 | Column | Header | Notes |

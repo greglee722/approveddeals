@@ -171,7 +171,8 @@ On save:
 - **Attachments** — auto-renders when any paymentLog entry has an imageUrl; inline lightbox viewer
 - **Additional Information** — free text notes (shown only if populated)
 - **Payment tiles** — one card per payment type that has `needed > 0`
-- **Payments & Paperwork Log** — full log table with columns: Client, Type, Details, Amount, Date
+- **Payments Log** — payment-only entries; columns: Client, Type, Details, Amount, Date (v3.9+)
+- **Paperwork Log** — NCF-only entries; columns: Client, Type, Details, Date (v3.9+)
 
 > **Note:** The Property card was removed in v1.4 — the address is already shown in the deal header.
 
