@@ -531,7 +531,7 @@ th.sortable:hover { color:var(--accent); }
 
 <div id="app" style="display:none;">
 <header id="header">
-  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v3.9</span></div>
+  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v4.0</span></div>
   <nav class="header-nav">
     <button class="nav-tab active" data-page="dashboard"  onclick="showPage('dashboard',this)">Dashboard</button>
     <button class="nav-tab alert-tab" data-page="payments" onclick="showPage('payments',this)">Payments &amp; Paperwork</button>
@@ -1094,7 +1094,7 @@ let tokenClient  = null;
 let currentUser  = null; // { email, role, name }
 
 const SHEET_HEADERS = {
-  deals:     ['id','status','stage','stageOverride','name','leaseStart','leaseEnd','addressId','addressDisplay','landlordId','landlordName','agentId','agentName','commission','additionalInfo','clients','cosigners','appfeeNeeded','appfeeReceived','appfeeDue','appfeeNotes','fmrNeeded','fmrReceived','fmrDue','fmrNotes','fmrDelivered','brokerNeeded','brokerReceived','brokerDue','brokerNotes','lmrNeeded','lmrReceived','lmrDue','lmrNotes','lmrDelivered','secdepNeeded','secdepReceived','secdepDue','secdepNotes','secdepDelivered','keyfeeNeeded','keyfeeReceived','keyfeeDue','keyfeeNotes','keyfeeDelivered','ncfNeeded','ncfDue','ncfReceived','ncfNotes','ncfDelivered','ncfPartialNotes','leaseReceived','leaseDelivered','leaseNotes','archiveReason','archivedOn','created','paymentLog'],
+  deals:     ['id','status','stage','stageOverride','name','leaseStart','leaseEnd','addressId','addressDisplay','landlordId','landlordName','agentId','agentName','commission','additionalInfo','clients','cosigners','appfeeNeeded','appfeeReceived','appfeeDue','appfeeNotes','fmrNeeded','fmrReceived','fmrDue','fmrNotes','fmrDelivered','brokerNeeded','brokerReceived','brokerDue','brokerNotes','lmrNeeded','lmrReceived','lmrDue','lmrNotes','lmrDelivered','secdepNeeded','secdepReceived','secdepDue','secdepNotes','secdepDelivered','keyfeeNeeded','keyfeeReceived','keyfeeDue','keyfeeNotes','keyfeeDelivered','ncfNeeded','ncfDue','ncfReceived','ncfNotes','ncfDelivered','ncfPartialNotes','leaseReceived','leaseDelivered','leaseNotes','archiveReason','archivedOn','created','paymentLog','','lastUpdated'],
   clients:   ['id','first','last','email','phone','notes','cosigners'],
   addresses: ['id','street1','street2','city','state','zip','rent','beds','baths'],
   landlords: ['id','name','email','phone','notes'],
@@ -1653,8 +1653,8 @@ function applyFilters() {
       let av, bv;
       if (sortCol==='leaseStart') { av=a.leaseStart||''; bv=b.leaseStart||''; }
       else if (sortCol==='name') { av=(a.name||'').toLowerCase(); bv=(b.name||'').toLowerCase(); }
-      else if (sortCol==='landlord') { av=(a.landlord||'').toLowerCase(); bv=(b.landlord||'').toLowerCase(); }
-      else if (sortCol==='agent') { av=(a.agent||'').toLowerCase(); bv=(b.agent||'').toLowerCase(); }
+      else if (sortCol==='landlord') { av=(a.landlordName||'').toLowerCase(); bv=(b.landlordName||'').toLowerCase(); }
+      else if (sortCol==='agent') { av=(a.agentName||'').toLowerCase(); bv=(b.agentName||'').toLowerCase(); }
       else if (sortCol==='stage') { av=a.stage??0; bv=b.stage??0; }
       else if (sortCol==='payments') { av=getPaymentIssues(a).length; bv=getPaymentIssues(b).length; }
       else if (sortCol==='lastUpdated') { av=a.lastUpdated||''; bv=b.lastUpdated||''; }
