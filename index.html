@@ -531,7 +531,7 @@ th.sortable:hover { color:var(--accent); }
 
 <div id="app" style="display:none;">
 <header id="header">
-  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v4.1</span></div>
+  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v4.2</span></div>
   <nav class="header-nav">
     <button class="nav-tab active" data-page="dashboard"  onclick="showPage('dashboard',this)">Dashboard</button>
     <button class="nav-tab alert-tab" data-page="payments" onclick="showPage('payments',this)">Payments &amp; Paperwork</button>
@@ -2042,6 +2042,9 @@ function openDealModal(editId) {
     // restore stage (could be user-overridden)
     stageOverride = d.stageOverride;
     setStage(d.stage||0);
+  } else {
+    const today = new Date().toISOString().slice(0, 10);
+    setV('df-broker-due', today);
   }
   document.getElementById('deal-overlay').classList.add('open');
 }
