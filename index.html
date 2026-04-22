@@ -531,7 +531,7 @@ th.sortable:hover { color:var(--accent); }
 
 <div id="app" style="display:none;">
 <header id="header">
-  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v4.0</span></div>
+  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v4.1</span></div>
   <nav class="header-nav">
     <button class="nav-tab active" data-page="dashboard"  onclick="showPage('dashboard',this)">Dashboard</button>
     <button class="nav-tab alert-tab" data-page="payments" onclick="showPage('payments',this)">Payments &amp; Paperwork</button>
@@ -998,7 +998,7 @@ th.sortable:hover { color:var(--accent); }
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border);padding-top:16px;">
       <button class="btn btn-ghost" onclick="closeEmailDraftModal()">Close</button>
-      <button class="btn btn-outline btn-sm" onclick="copyEmailDraftBody()">Copy Body</button>
+      <button class="btn btn-outline btn-sm" onclick="copyEmailDraftBody()">Copy Formatted</button>
       <button class="btn btn-primary btn-sm" onclick="openEmailInMailClient()">Open in Mail Client</button>
     </div>
   </div>
@@ -4034,41 +4034,57 @@ function generateWelcomeEmail(deal) {
   const address = resolveDealAddress(deal);
   const landlord = deal.landlordName || '___________';
 
-  let steps = '';
+  let stepsPlain = '';
+  let stepsHtml = '';
   let stepNum = 1;
 
   if (parseFloat(deal.brokerNeeded) > 0) {
-    steps += `${stepNum}. Pay the Broker Fee${formatCurrency(deal.brokerNeeded) ? ' – ' + formatCurrency(deal.brokerNeeded) : ''}\nDUE DATE: ${formatEmailDate(deal.brokerDue)}\n\nYou can pay the broker's fee online. Please look out for the invoice in your email.\n\n`;
+    const fee = formatCurrency(deal.brokerNeeded);
+    const due = formatEmailDate(deal.brokerDue);
+    stepsPlain += stepNum + '. Pay the Broker Fee' + (fee ? ' – ' + fee : '') + '\nDUE DATE: ' + due + '\n\nYou can pay the broker\'s fee online. Please look out for the invoice in your email.\n\n';
+    stepsHtml += '<b>' + stepNum + '. Pay the Broker Fee' + (fee ? ' – ' + fee : '') + '</b><br><b>Due Date: ' + due + '</b><br><br>You can pay the broker\'s fee online. Please look out for the invoice in your email.<br><br>';
     stepNum++;
   }
 
-  steps += `${stepNum}. Sign the lease\n\nI have sent you the lease via email through DocuSign, for you to sign electronically. Please check your inbox and let me know if you have not received it!\n\n`;
+  stepsPlain += stepNum + '. Sign the lease\n\nI have sent you the lease via email through DocuSign, for you to sign electronically. Please check your inbox and let me know if you have not received it!\n\n';
+  stepsHtml += '<b>' + stepNum + '. Sign the lease</b><br><br>I have sent you the lease via email through DocuSign, for you to sign electronically. Please check your inbox and let me know if you have not received it!<br><br>';
   stepNum++;
 
-  const remainingLines = [];
+  const remainingLinesPlain = [];
+  const remainingLinesHtml = [];
   if (parseFloat(deal.secdepNeeded) > 0) {
-    remainingLines.push(`Security Deposit – ${formatCurrency(deal.secdepNeeded)}\nDUE DATE: ${formatEmailDate(deal.secdepDue)}\nPlease make cashier's check or money order payable to ${landlord}`);
+    remainingLinesPlain.push('Security Deposit – ' + formatCurrency(deal.secdepNeeded) + '\nDUE DATE: ' + formatEmailDate(deal.secdepDue) + '\nPlease make cashier\'s check or money order payable to ' + landlord);
+    remainingLinesHtml.push('<b>Security Deposit – ' + formatCurrency(deal.secdepNeeded) + '</b><br><b>Due Date: ' + formatEmailDate(deal.secdepDue) + '</b><br>Please make cashier\'s check or money order payable to ' + landlord);
   }
   if (parseFloat(deal.lmrNeeded) > 0) {
-    remainingLines.push(`Last Month's Rent – ${formatCurrency(deal.lmrNeeded)}\nDUE DATE: ${formatEmailDate(deal.lmrDue)}\nPlease make cashier's check or money order payable to ${landlord}`);
+    remainingLinesPlain.push('Last Month\'s Rent – ' + formatCurrency(deal.lmrNeeded) + '\nDUE DATE: ' + formatEmailDate(deal.lmrDue) + '\nPlease make cashier\'s check or money order payable to ' + landlord);
+    remainingLinesHtml.push('<b>Last Month\'s Rent – ' + formatCurrency(deal.lmrNeeded) + '</b><br><b>Due Date: ' + formatEmailDate(deal.lmrDue) + '</b><br>Please make cashier\'s check or money order payable to ' + landlord);
   }
   if (parseFloat(deal.keyfeeNeeded) > 0) {
-    remainingLines.push(`Key Deposit – ${formatCurrency(deal.keyfeeNeeded)}\nDUE DATE: ${formatEmailDate(deal.keyfeeDue)}\nPlease make cashier's check or money order payable to ${landlord}`);
+    remainingLinesPlain.push('Key Deposit – ' + formatCurrency(deal.keyfeeNeeded) + '\nDUE DATE: ' + formatEmailDate(deal.keyfeeDue) + '\nPlease make cashier\'s check or money order payable to ' + landlord);
+    remainingLinesHtml.push('<b>Key Deposit – ' + formatCurrency(deal.keyfeeNeeded) + '</b><br><b>Due Date: ' + formatEmailDate(deal.keyfeeDue) + '</b><br>Please make cashier\'s check or money order payable to ' + landlord);
   }
 
-  if (remainingLines.length) {
-    steps += `${stepNum}. Pay remaining funds\n\nAs per the payment schedule (pre-lease agreement) that you signed at the time of application, the remaining funds (in the form of a cashier's check or money order) that are due are:\n\n`;
-    steps += remainingLines.join('\n\n') + '\n\n';
-    steps += `All payments need to be made separately and in the form of a cashier's check or money order (certified funds). Please be advised that we are unable to accept personal checks or checks made payable to New Wave. If you want to mail us the payments, please send via Certified Mail/Priority so that you have a receipt with the tracking information.\n\nYou can certify mail or deliver the check to:\n\nNew Wave Boston Real Estate\n164 Newbury St, 4th Fl\nBoston, MA 02116\nRE: ${deal.name || address}\n\n`;
+  if (remainingLinesPlain.length) {
+    stepsPlain += stepNum + '. Pay remaining funds\n\nAs per the payment schedule (pre-lease agreement) that you signed at the time of application, the remaining funds (in the form of a cashier\'s check or money order) that are due are:\n\n';
+    stepsPlain += remainingLinesPlain.join('\n\n') + '\n\n';
+    stepsPlain += 'All payments need to be made separately and in the form of a cashier\'s check or money order (certified funds). Please be advised that we are unable to accept personal checks or checks made payable to New Wave. If you want to mail us the payments, please send via Certified Mail/Priority so that you have a receipt with the tracking information.\n\nYou can certify mail or deliver the check to:\n\nNew Wave Boston Real Estate\n164 Newbury St, 4th Fl\nBoston, MA 02116\nRE: ' + (deal.name || address) + '\n\n';
+    stepsHtml += '<b>' + stepNum + '. Pay remaining funds</b><br><br>As per the payment schedule (pre-lease agreement) that you signed at the time of application, the remaining funds (in the form of a cashier\'s check or money order) that are due are:<br><br>';
+    stepsHtml += remainingLinesHtml.join('<br><br>') + '<br><br>';
+    stepsHtml += 'All payments need to be made separately and in the form of a cashier\'s check or money order (certified funds). Please be advised that we are unable to accept personal checks or checks made payable to New Wave. If you want to mail us the payments, please send via Certified Mail/Priority so that you have a receipt with the tracking information.<br><br>You can certify mail or deliver the check to:<br><br><b>New Wave Boston Real Estate</b><br>164 Newbury St, 4th Fl<br>Boston, MA 02116<br>RE: ' + (deal.name || address) + '<br><br>';
     stepNum++;
   }
 
-  steps += `${stepNum}. Setup Utilities\n\nIf utilities are not included in your rent, you will need to setup an account with the following companies:\nEverSource - Electricity\nNationalGrid - Gas (if applicable)\nWe recommend that you do this a few weeks before your lease start date so that there are no disruptions in service.`;
+  stepsPlain += stepNum + '. Setup Utilities\n\nIf utilities are not included in your rent, you will need to setup an account with the following companies:\nEverSource - Electricity\nNationalGrid - Gas (if applicable)\nWe recommend that you do this a few weeks before your lease start date so that there are no disruptions in service.';
+  stepsHtml += '<b>' + stepNum + '. Setup Utilities</b><br><br>If utilities are not included in your rent, you will need to setup an account with the following companies:<ul><li>EverSource – Electricity</li><li>NationalGrid – Gas (if applicable)</li></ul>We recommend that you do this a few weeks before your lease start date so that there are no disruptions in service.';
 
-  return `Hello ${greeting},\n\nCongratulations again on the approval for your new apartment located at ${address}! My name is Greg and I am one of the Client Support Specialists who will be able to assist you with the remaining steps until your move-in is complete! I am happy to answer any questions you may have, to ensure the best possible communication throughout the process!\n\nIn order to keep things moving, the next steps are to:\n\n${steps}\n\nI look forward to being your new point of contact and assisting you with the rest of your rental process!`;
+  const plain = 'Hello ' + greeting + ',\n\nCongratulations again on the approval for your new apartment located at ' + address + '! My name is Greg and I am one of the Client Support Specialists who will be able to assist you with the remaining steps until your move-in is complete! I am happy to answer any questions you may have, to ensure the best possible communication throughout the process!\n\nIn order to keep things moving, the next steps are to:\n\n' + stepsPlain + '\n\nI look forward to being your new point of contact and assisting you with the rest of your rental process!';
+  const html = 'Hello ' + greeting + ',<br><br>Congratulations again on the approval for your new apartment located at ' + address + '! My name is Greg and I am one of the Client Support Specialists who will be able to assist you with the remaining steps until your move-in is complete! I am happy to answer any questions you may have, to ensure the best possible communication throughout the process!<br><br>In order to keep things moving, the next steps are to:<br><br>' + stepsHtml + '<br><br>I look forward to being your new point of contact and assisting you with the rest of your rental process!';
+  return { plain, html };
 }
 
 let _emailDraftDealId = null;
+let _emailDraftBodyHtml = '';
 
 function openEmailDraftModal(dealId) {
   const deal = db.deals.find(d => d.id === dealId);
@@ -4083,7 +4099,9 @@ function openEmailDraftModal(dealId) {
 
   document.getElementById('email-draft-to').textContent = emails.length ? emails.join(', ') : '(no client emails on file)';
   document.getElementById('email-draft-subject').textContent = 'Approval for ' + resolveDealAddress(deal);
-  document.getElementById('email-draft-body').value = generateWelcomeEmail(deal);
+  const welcomeContent = generateWelcomeEmail(deal);
+  _emailDraftBodyHtml = welcomeContent.html;
+  document.getElementById('email-draft-body').value = welcomeContent.plain;
   document.getElementById('email-draft-cosigner-row').style.display = 'none';
   document.getElementById('email-draft-cc-row').style.display = 'none';
   document.getElementById('email-draft-overlay').classList.add('open');
@@ -4095,18 +4113,32 @@ function closeEmailDraftModal() {
 }
 
 function copyEmailDraftBody() {
-  const body = document.getElementById('email-draft-body').value;
-  navigator.clipboard.writeText(body).then(() => {
-    showToast('✓ Email body copied to clipboard');
-  }).catch(() => {
-    const ta = document.createElement('textarea');
-    ta.value = body;
-    ta.style.position = 'fixed'; ta.style.opacity = '0';
-    document.body.appendChild(ta); ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    showToast('✓ Email body copied to clipboard');
-  });
+  const plain = document.getElementById('email-draft-body').value;
+  const html = _emailDraftBodyHtml || plain;
+  if (navigator.clipboard && window.ClipboardItem) {
+    navigator.clipboard.write([
+      new ClipboardItem({
+        'text/html': new Blob([html], { type: 'text/html' }),
+        'text/plain': new Blob([plain], { type: 'text/plain' })
+      })
+    ]).then(() => {
+      showToast('✓ Email body copied to clipboard');
+    }).catch(() => {
+      navigator.clipboard.writeText(plain).then(() => showToast('✓ Email body copied to clipboard'));
+    });
+  } else {
+    navigator.clipboard.writeText(plain).then(() => {
+      showToast('✓ Email body copied to clipboard');
+    }).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = plain;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast('✓ Email body copied to clipboard');
+    });
+  }
 }
 
 function openEmailInMailClient() {
@@ -4155,7 +4187,16 @@ function openNCFDraftModal(dealId) {
     '4th Fl\n' +
     'Boston, MA 02116\n\n' +
     'Can you please return the form by ' + dueDate + '? Please let me know if you have any questions!';
+  const bodyHtml =
+    'Hello,<br><br>' +
+    'My name is Greg and I\'m the Client Support Specialist from New Wave Boston Real Estate, assisting ' + clientNames + ' with their rental for ' + address + '. The property manager requires original notarized cosigner forms to complete the paperwork, which you electronically signed in Docusign during the application process. Attached is the form and the password is the last 4 digits of your phone number that you provided on the form. I removed your electronic signature because some notaries will not notarize a form that has already been signed. Therefore, you will need to sign the form at the notary. Please print, notarize and return the original to our office at:<br><br>' +
+    '<b>New Wave Boston Real Estate</b><br>' +
+    '164 Newbury St<br>' +
+    '4th Fl<br>' +
+    'Boston, MA 02116<br><br>' +
+    'Can you please return the form by <b>' + dueDate + '</b>? Please let me know if you have any questions!';
 
+  _emailDraftBodyHtml = bodyHtml;
   document.getElementById('email-draft-subject').textContent = 'Notarized Cosigner Form for ' + address;
   document.getElementById('email-draft-body').value = body;
 
