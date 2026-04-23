@@ -1,0 +1,11 @@
+# Local-only Claude Code guidance — not part of the public repo
+CLAUDE.md
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editor junk
+.vscode/
+.idea/
+*.swp
