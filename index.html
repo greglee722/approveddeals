@@ -531,7 +531,7 @@ th.sortable:hover { color:var(--accent); }
 
 <div id="app" style="display:none;">
 <header id="header">
-  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v4.2</span></div>
+  <div class="logo">Approved<span>Deals</span> <span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v4.4</span></div>
   <nav class="header-nav">
     <button class="nav-tab active" data-page="dashboard"  onclick="showPage('dashboard',this)">Dashboard</button>
     <button class="nav-tab alert-tab" data-page="payments" onclick="showPage('payments',this)">Payments &amp; Paperwork</button>
@@ -3454,7 +3454,7 @@ ${clientList || 'None yet'}
 
 Return this exact JSON structure:
 {
-  "name": "deal name — use address if not specified",
+  "name": "deal name. Format as: [street number] [street name] [unit number] — e.g. '767 Tremont St #7'. NO city, state, or zip. If no unit, just street number + street name.",
   "addressId": "existing address id if matched, else ''",
   "addressDisplay": "full address string (always fill if address is mentioned)",
   "addressStreet1": "street address line 1 if new address, else ''",
@@ -3476,17 +3476,22 @@ Return this exact JSON structure:
   "clients": [
     { "id": "existing client id if matched else ''", "first": "", "last": "", "email": "", "phone": "" }
   ],
-  "appfeeNeeded": "0", "appfeeReceived": "0", "appfeeNotes": "",
-  "fmrNeeded": "0", "fmrReceived": "0", "fmrDelivered": "", "fmrNotes": "special instructions only e.g. payable to X",
-  "brokerNeeded": "0", "brokerReceived": "0", "brokerNotes": "special instructions only",
-  "lmrNeeded": "0", "lmrReceived": "0", "lmrDelivered": "", "lmrNotes": "special instructions only",
-  "secdepNeeded": "0", "secdepReceived": "0", "secdepDelivered": "", "secdepNotes": "special instructions only",
-  "keyfeeNeeded": "0", "keyfeeReceived": "0", "keyfeeDelivered": "", "keyfeeNotes": "special instructions only",
+  "appfeeNeeded": "0", "appfeeReceived": "0", "appfeeDue": "YYYY-MM-DD or ''", "appfeeNotes": "",
+  "fmrNeeded": "0", "fmrReceived": "0", "fmrDue": "YYYY-MM-DD or ''", "fmrDelivered": "", "fmrNotes": "special instructions only e.g. payable to X",
+  "brokerNeeded": "0", "brokerReceived": "0", "brokerDue": "YYYY-MM-DD or ''", "brokerNotes": "special instructions only",
+  "lmrNeeded": "0", "lmrReceived": "0", "lmrDue": "YYYY-MM-DD or ''", "lmrDelivered": "", "lmrNotes": "special instructions only",
+  "secdepNeeded": "0", "secdepReceived": "0", "secdepDue": "YYYY-MM-DD or ''", "secdepDelivered": "", "secdepNotes": "special instructions only",
+  "keyfeeNeeded": "0", "keyfeeReceived": "0", "keyfeeDue": "YYYY-MM-DD or ''", "keyfeeDelivered": "", "keyfeeNotes": "special instructions only",
   "ncfNeeded": "0", "ncfDelivered": "",
   "ncfDue": "",
   "leaseStart": "YYYY-MM-DD or ''",
   "leaseReceived": "", "leaseDelivered": ""
 }
+DUE DATE RULES:
+- Parse phrases like "sec dep due May 15", "fmr due by 5/15", "broker fee due 6/1/2026" into the matching <type>Due field as YYYY-MM-DD.
+- If a year is not stated, use the lease-start year if known, otherwise the current year.
+- "due at lease signing" or "due at move-in" → use the lease start date.
+- If no due date is mentioned for a payment type, leave that <type>Due field as "".
 DELIVERED FIELD RULES:
 - Set Delivered to "Yes" when the description says the payment was "delivered", "sent to landlord", "sent over", or similar delivery language.
 - "collected" alone does NOT mean delivered — only set Delivered if delivery to the landlord/recipient is explicitly stated.
@@ -3600,7 +3605,7 @@ async function applyAIDeal(deal) {
       document.getElementById('df-address-id').value = newAddrId;
       document.getElementById('dd-address-input').value = deal.addressDisplay;
     }
-    if (!deal.name) document.getElementById('df-name').value = deal.addressDisplay;
+    if (!deal.name) document.getElementById('df-name').value = `${deal.addressStreet1||''} ${deal.addressStreet2||''}`.trim() || deal.addressDisplay;
   }
 
   // Landlord — match existing or auto-create
@@ -3639,6 +3644,7 @@ async function applyAIDeal(deal) {
   payments.forEach(p => {
     sv('df-'+p+'-needed', deal[p+'Needed']);
     sv('df-'+p+'-notes', deal[p+'Notes']);
+    sv('df-'+p+'-due', deal[p+'Due']);
     // If collected/received amount is specified, set received too
     if (deal[p+'Received']) sv('df-'+p+'-received', deal[p+'Received']);
     // If notes say "collected" or "received" with no separate received field, set received = needed
@@ -4041,7 +4047,14 @@ function generateWelcomeEmail(deal) {
   let stepsHtml = '';
   let stepNum = 1;
 
-  if (parseFloat(deal.brokerNeeded) > 0) {
+  // A payment is outstanding (and should appear in the email) only if Needed > 0 AND Received < Needed.
+  const isOutstanding = (needed, received) => {
+    const n = parseFloat(needed) || 0;
+    const r = parseFloat(received) || 0;
+    return n > 0 && r < n;
+  };
+
+  if (isOutstanding(deal.brokerNeeded, deal.brokerReceived)) {
     const fee = formatCurrency(deal.brokerNeeded);
     const due = formatEmailDate(deal.brokerDue);
     stepsPlain += stepNum + '. Pay the Broker Fee' + (fee ? ' – ' + fee : '') + '\nDUE DATE: ' + due + '\n\nYou can pay the broker\'s fee online. Please look out for the invoice in your email.\n\n';
@@ -4055,15 +4068,15 @@ function generateWelcomeEmail(deal) {
 
   const remainingLinesPlain = [];
   const remainingLinesHtml = [];
-  if (parseFloat(deal.secdepNeeded) > 0) {
+  if (isOutstanding(deal.secdepNeeded, deal.secdepReceived)) {
     remainingLinesPlain.push('Security Deposit – ' + formatCurrency(deal.secdepNeeded) + '\nDUE DATE: ' + formatEmailDate(deal.secdepDue) + '\nPlease make cashier\'s check or money order payable to ' + landlord);
     remainingLinesHtml.push('<b>Security Deposit – ' + formatCurrency(deal.secdepNeeded) + '</b><br><b>Due Date: ' + formatEmailDate(deal.secdepDue) + '</b><br>Please make cashier\'s check or money order payable to ' + landlord);
   }
-  if (parseFloat(deal.lmrNeeded) > 0) {
+  if (isOutstanding(deal.lmrNeeded, deal.lmrReceived)) {
     remainingLinesPlain.push('Last Month\'s Rent – ' + formatCurrency(deal.lmrNeeded) + '\nDUE DATE: ' + formatEmailDate(deal.lmrDue) + '\nPlease make cashier\'s check or money order payable to ' + landlord);
     remainingLinesHtml.push('<b>Last Month\'s Rent – ' + formatCurrency(deal.lmrNeeded) + '</b><br><b>Due Date: ' + formatEmailDate(deal.lmrDue) + '</b><br>Please make cashier\'s check or money order payable to ' + landlord);
   }
-  if (parseFloat(deal.keyfeeNeeded) > 0) {
+  if (isOutstanding(deal.keyfeeNeeded, deal.keyfeeReceived)) {
     remainingLinesPlain.push('Key Deposit – ' + formatCurrency(deal.keyfeeNeeded) + '\nDUE DATE: ' + formatEmailDate(deal.keyfeeDue) + '\nPlease make cashier\'s check or money order payable to ' + landlord);
     remainingLinesHtml.push('<b>Key Deposit – ' + formatCurrency(deal.keyfeeNeeded) + '</b><br><b>Due Date: ' + formatEmailDate(deal.keyfeeDue) + '</b><br>Please make cashier\'s check or money order payable to ' + landlord);
   }
