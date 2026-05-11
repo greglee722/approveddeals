@@ -1725,6 +1725,13 @@
       background: #fef2f2 !important;
       border-color: #fecaca !important;
     }
+
+    /* ── INVOICE PRINT ── */
+    @media print {
+      body * { visibility: hidden; }
+      #invoice-print-area, #invoice-print-area * { visibility: visible; }
+      #invoice-print-area { position: absolute; left: 0; top: 0; width: 100%; }
+    }
   </style>
   <style>
     /* AUTH SCREEN */
@@ -3093,6 +3100,35 @@
         <button class="btn btn-ghost" onclick="closeEmailDraftModal()">Close</button>
         <button class="btn btn-outline btn-sm" onclick="copyEmailDraftBody()">Copy Formatted</button>
         <button class="btn btn-primary btn-sm" onclick="openEmailInMailClient()">Open in Mail Client</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- INVOICE MODAL -->
+  <div class="mini-overlay" id="invoice-overlay">
+    <div class="mini-modal" style="width:720px;max-height:92vh;overflow-y:auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div class="mini-title" style="margin-bottom:0;">Generate Invoice</div>
+        <button class="modal-close" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);" onclick="closeInvoiceModal()">&#215;</button>
+      </div>
+      <div style="display:flex;gap:16px;align-items:flex-end;margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border);flex-wrap:wrap;">
+        <div class="form-group" style="flex:1;min-width:150px;">
+          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:4px;display:block;">Amount Due ($)</label>
+          <div class="currency-wrap"><input type="number" id="inv-amount" placeholder="0.00" step="0.01" oninput="renderInvoicePreview()" style="width:100%;"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding-bottom:8px;">
+          <input type="checkbox" id="inv-paid" onchange="toggleInvoicePaid()" style="width:16px;height:16px;cursor:pointer;">
+          <label for="inv-paid" style="font-size:13px;font-weight:500;cursor:pointer;">Broker Fee Paid</label>
+        </div>
+        <div class="form-group" id="inv-paid-date-group" style="display:none;min-width:150px;">
+          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:4px;display:block;">Paid Date</label>
+          <input type="date" id="inv-paid-date" oninput="renderInvoicePreview()" style="width:100%;">
+        </div>
+      </div>
+      <div id="invoice-print-area" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#fff;"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border);padding-top:16px;margin-top:16px;">
+        <button class="btn btn-ghost" onclick="closeInvoiceModal()">Close</button>
+        <button class="btn btn-primary" onclick="window.print()">Print / Save as PDF</button>
       </div>
     </div>
   </div>
