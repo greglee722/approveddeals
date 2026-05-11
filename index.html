@@ -3128,7 +3128,7 @@
       <div id="invoice-print-area" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#fff;"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border);padding-top:16px;margin-top:16px;">
         <button class="btn btn-ghost" onclick="closeInvoiceModal()">Close</button>
-        <button class="btn btn-primary" onclick="window.print()">Print / Save as PDF</button>
+        <button class="btn btn-primary" onclick="printInvoice()">Print / Save as PDF</button>
       </div>
     </div>
   </div>
@@ -6270,6 +6270,15 @@ Example: "client is Greg Lee, greg@gmail.com" → clients:[{"id":"","first":"Gre
     function closeInvoiceModal() {
       document.getElementById('invoice-overlay').classList.remove('open');
       _invoiceDealId = null;
+    }
+
+    function printInvoice() {
+      const content = document.getElementById('invoice-print-area').innerHTML;
+      const w = window.open('', '_blank');
+      w.document.write('<!DOCTYPE html><html><head><title>Invoice</title></head><body style="margin:0;padding:0;">' + content + '</body></html>');
+      w.document.close();
+      w.focus();
+      w.print();
     }
 
     function toggleInvoicePaid() {
