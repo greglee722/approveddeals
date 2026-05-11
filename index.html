@@ -3113,6 +3113,10 @@
       </div>
       <div style="display:flex;gap:16px;align-items:flex-end;margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border);flex-wrap:wrap;">
         <div class="form-group" style="flex:1;min-width:150px;">
+          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:4px;display:block;">Monthly Rent ($)</label>
+          <div class="currency-wrap"><input type="number" id="inv-rent" placeholder="0.00" step="0.01" oninput="renderInvoicePreview()" style="width:100%;"></div>
+        </div>
+        <div class="form-group" style="flex:1;min-width:150px;">
           <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:4px;display:block;">Amount Due ($)</label>
           <div class="currency-wrap"><input type="number" id="inv-amount" placeholder="0.00" step="0.01" oninput="renderInvoicePreview()" style="width:100%;"></div>
         </div>
@@ -6259,6 +6263,8 @@ Example: "client is Greg Lee, greg@gmail.com" → clients:[{"id":"","first":"Gre
       const d = db.deals.find(x => x.id === id);
       if (!d) return;
       _invoiceDealId = id;
+      const _addr = d.addressId ? db.addresses.find(x => x.id === d.addressId) : null;
+      document.getElementById('inv-rent').value = (_addr && _addr.rent) ? _addr.rent : '';
       document.getElementById('inv-amount').value = d.brokerNeeded || '';
       document.getElementById('inv-paid').checked = false;
       document.getElementById('inv-paid-date').value = new Date().toISOString().split('T')[0];
@@ -6297,7 +6303,8 @@ Example: "client is Greg Lee, greg@gmail.com" → clients:[{"id":"","first":"Gre
       const addrStr = addr
         ? [addr.street1, addr.street2, addr.city, addr.state].filter(Boolean).join(', ')
         : (d.name || '—');
-      const rent = addr && addr.rent ? '$' + parseFloat(addr.rent).toLocaleString() : '—';
+      const rentVal = document.getElementById('inv-rent').value;
+      const rent = rentVal ? '$' + parseFloat(rentVal).toLocaleString() : '—';
       const tenants = (d.clients || []).map(function(c) { return c.name; }).filter(Boolean).join(', ') || '—';
       const today = new Date().toLocaleDateString('en-US');
       const moveIn = d.leaseStart ? new Date(d.leaseStart + 'T00:00:00').toLocaleDateString('en-US') : '—';
