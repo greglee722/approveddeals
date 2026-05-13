@@ -1992,7 +1992,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v5.1</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v5.2</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -6320,23 +6320,25 @@ Example: "client is Greg Lee, greg@gmail.com" → clients:[{"id":"","first":"Gre
         '<div style="font-family:Arial,sans-serif;padding:48px 56px;max-width:760px;margin:0 auto;color:#000;background:#fff;">'
         + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:36px;">'
           + '<img src="data:image/png;base64,' + NW_LOGO_B64 + '" style="height:64px;" alt="New Wave">'
-          + '<div style="font-size:22px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;">RENTAL INVOICE</div>'
+          + '<div style="font-size:22px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;">RENTAL INVOICE' + (isPaid ? ' <span style="color:#2a9d2a;font-size:20px;">PAID</span>' : '') + '</div>'
         + '</div>'
         + '<div style="margin-bottom:20px;line-height:2.2;font-size:14px;">'
-          + '<div>Date: ' + today + '</div>'
-          + '<div>Company: ' + (d.landlordName || '—') + '</div>'
-          + '<div>Attention: ACCOUNTING</div>'
+          + '<div><b>Date:</b> ' + today + '</div>'
+          + '<div><b>Company:</b> ' + (d.landlordName || '—') + '</div>'
+          + '<div><b>Attention:</b> ACCOUNTING</div>'
         + '</div>'
         + '<div style="margin-bottom:20px;line-height:2.2;font-size:14px;">'
-          + '<div>From New Wave leasing agent: ' + (d.agentName || '—') + '</div>'
-          + '<div>Agent contact number: 617-259-1760</div>'
+          + '<div><b>From New Wave Leasing Agent:</b> ' + (d.agentName || '—') + '</div>'
+          + '<div><b>Agent Contact Number:</b> 617-259-1760</div>'
         + '</div>'
-        + '<div style="margin-bottom:20px;line-height:2.2;font-size:14px;">'
-          + '<div>For the professional services rendered in the lease of:</div>'
-          + '<div style="margin-top:6px;">Address: ' + addrStr + '</div>'
-          + '<div>Tenant: ' + tenants + '</div>'
-          + '<div>Monthly rent: ' + rent + '</div>'
-          + '<div>Move-in date: ' + moveIn + '</div>'
+        + '<div style="margin-bottom:20px;line-height:2.2;font-size:14px;text-align:center;">'
+          + '<div><b>For the professional services rendered in the lease of:</b></div>'
+          + '<div style="display:inline-block;text-align:left;margin-top:4px;">'
+            + '<div><b>Address:</b> ' + addrStr + '</div>'
+            + '<div><b>Tenant(s):</b> ' + tenants + '</div>'
+            + '<div><b>Monthly Rent:</b> ' + rent + '</div>'
+            + '<div><b>Move-In Date:</b> ' + moveIn + '</div>'
+          + '</div>'
         + '</div>'
         + '<div style="margin:32px 0 28px;border-top:1.5px solid #000;padding-top:18px;font-size:14px;font-weight:600;">'
           + amtLine
