@@ -1992,7 +1992,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v5.2</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v5.3</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -4138,7 +4138,7 @@
       if (editingDealId) db.deals = db.deals.map(x => x.id === editingDealId ? deal : x);
       else db.deals.push(deal);
       await saveRecord('deals', deal); closeDealModal(); rebuildFilters(); applyFilters(); renderStats();
-      if (document.getElementById('deal-detail-overlay')) openDealDetail(deal.id);
+      if (document.getElementById('deal-detail-overlay') || !editingDealId) openDealDetail(deal.id);
     }
     function gv(id) { const e = document.getElementById(id); return e ? e.value : ''; }
 
