@@ -1992,7 +1992,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v5.4</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v5.5</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -3268,6 +3268,7 @@
     // ── AUTH ──
     window.onload = () => {
       sb.auth.onAuthStateChange(async (event, session) => {
+        _driveTokenPresent = !!session?.provider_token;
         if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
           if (document.getElementById('app').style.display !== 'block') {
             await startApp(session);
@@ -3351,6 +3352,12 @@
         renderPaymentsTable();
         renderDeliveryTable();
         restoreFromHash();
+        // After a Drive re-auth redirect the URL hash is lost, so reopen the deal we left from.
+        const _returnDeal = localStorage.getItem('adcrm_return_deal');
+        if (_returnDeal) {
+          localStorage.removeItem('adcrm_return_deal');
+          if (db.deals.find(d => d.id === _returnDeal)) openDealDetail(_returnDeal);
+        }
       } catch (e) {
         document.getElementById('loading-screen').classList.remove('show');
         document.getElementById('auth-screen').style.display = 'flex';
@@ -4384,6 +4391,17 @@
       <td>${r.rent ? '$' + parseFloat(r.rent).toLocaleString() : '—'}</td>
       <td><button class="btn btn-ghost btn-xs" onclick="openObjModal('address',false,'${r.id}')">Edit</button>
       <button class="btn btn-danger btn-xs" onclick="deleteObj('address','${r.id}')">Del</button></td></tr>`).join('');
+      } else if (type === 'landlord') {
+        tbody.innerHTML = rows.map(r => `<tr class="landlord-row" data-landlord-id="${r.id}" style="cursor:pointer;">
+      <td style="font-weight:500;text-decoration:underline;text-underline-offset:3px;">${r.name || '—'}</td><td>${r.email || '—'}</td><td>${r.phone || '—'}</td>
+      <td style="color:var(--muted);font-size:12.5px;">${r.notes ? r.notes.substring(0, 60) + (r.notes.length > 60 ? '…' : '') : '—'}</td>
+      <td class="no-nav"><button class="btn btn-ghost btn-xs" onclick="openObjModal('landlord',false,'${r.id}')">Edit</button>
+      <button class="btn btn-danger btn-xs" onclick="deleteObj('landlord','${r.id}')">Del</button></td></tr>`).join('');
+        tbody.onclick = function (e) {
+          if (e.target.closest('.no-nav')) return;
+          const row = e.target.closest('.landlord-row');
+          if (row) openLandlordPopup(row.dataset.landlordId, '');
+        };
       } else {
         tbody.innerHTML = rows.map(r => `<tr>
       <td style="font-weight:500;">${r.name || '—'}</td><td>${r.email || '—'}</td><td>${r.phone || '—'}</td>
@@ -4766,7 +4784,22 @@
     let _uploadingRowId = null;
     let _uploadingRowType = 'payment'; // 'payment' or 'paperwork'
 
+    // ── Google Drive token check ──
+    // provider_token (Google's Drive access token) is only issued at sign-in and isn't
+    // refreshed by Supabase, so it lapses ~1h later. We cache its presence from auth events
+    // (see onAuthStateChange) and check it BEFORE opening the file picker, so an expired
+    // session is caught at paperclip-click time instead of after a file has been chosen.
+    let _driveTokenPresent = false;
+
+    function promptDriveReauth() {
+      const ok = confirm('Your Google Drive access has expired.\n\nIt only lasts about an hour after you sign in. Click OK to sign in again — you’ll come right back to this deal, then re-open this payment to attach your file.');
+      if (!ok) return;
+      if (paymentDealId) localStorage.setItem('adcrm_return_deal', paymentDealId);
+      signIn();
+    }
+
     function triggerPaymentImageUpload(rowId) {
+      if (!_driveTokenPresent) { promptDriveReauth(); return; }
       _uploadingRowId = rowId;
       _uploadingRowType = 'payment';
       document.getElementById('payment-image-input').value = '';
@@ -4774,6 +4807,7 @@
     }
 
     function triggerPaperworkImageUpload(rowId) {
+      if (!_driveTokenPresent) { promptDriveReauth(); return; }
       _uploadingRowId = rowId;
       _uploadingRowType = 'paperwork';
       document.getElementById('payment-image-input').value = '';
@@ -4800,8 +4834,13 @@
         row.imageUrl = imageUrl;
         if (_uploadingRowType === 'paperwork') renderPaperworkRows(); else renderPaymentRows();
       } catch (e) {
-        alert('Upload failed: ' + e.message);
         if (_uploadingRowType === 'paperwork') renderPaperworkRows(); else renderPaymentRows();
+        if (/Drive access|provider_token|unauthor|invalid|credential|401/i.test(e.message || '')) {
+          _driveTokenPresent = false; // token lapsed mid-upload — offer re-auth instead of a dead-end alert
+          promptDriveReauth();
+        } else {
+          alert('Upload failed: ' + e.message);
+        }
       }
       _uploadingRowId = null;
     }
@@ -5063,18 +5102,26 @@
       ${l.phone ? `<div style="display:flex;gap:12px;"><span style="color:var(--muted);min-width:60px;">Phone</span><a href="tel:${l.phone}" style="color:#000;">${l.phone}</a></div>` : ''}
       ${l.notes ? `<div style="display:flex;gap:12px;"><span style="color:var(--muted);min-width:60px;">Notes</span><span>${l.notes}</span></div>` : ''}
       ${!l.email && !l.phone && !l.notes ? '<p style="color:var(--muted);font-size:13px;">No contact info on file.</p>' : ''}
-      ${relatedDeals.length ? `<div style="margin-top:4px;padding-top:10px;border-top:1px solid var(--border);">
-        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:8px;">Related Deals</div>
-        ${relatedDeals.map(d => `<div style="font-size:13px;margin-bottom:5px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
-          <span style="font-weight:500;">${d.name || 'Untitled'}</span>
-          <span class="badge ${d.status === 'active' ? 'badge-active' : 'badge-draft'}" style="font-size:11px;">${d.status === 'active' ? 'Active' : 'Draft'}</span>
-        </div>`).join('')}
-      </div>` : ''}
+      <div style="margin-top:4px;padding-top:10px;border-top:1px solid var(--border);">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:8px;">Related Deals${relatedDeals.length ? ' (' + relatedDeals.length + ')' : ''}</div>
+        ${relatedDeals.length ? relatedDeals.map(d => `<div onclick="openDealFromLandlord('${d.id}')" style="font-size:13px;margin-bottom:4px;padding:6px 8px;border-radius:6px;background:var(--surface2);cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;" onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background='var(--surface2)'">
+          <span style="font-weight:500;text-decoration:underline;text-underline-offset:3px;">${d.name || 'Untitled'}</span>
+          <span style="display:flex;align-items:center;gap:7px;white-space:nowrap;">
+            ${d.leaseStart ? `<span style="color:var(--muted);font-size:11.5px;">${formatDate(d.leaseStart)}</span>` : ''}
+            <span class="badge ${d.status === 'active' ? 'badge-active' : 'badge-draft'}" style="font-size:11px;">${d.status === 'active' ? 'Active' : 'Draft'}</span>
+          </span>
+        </div>`).join('') : '<p style="color:var(--muted);font-size:13px;margin:0;">No deals attached to this landlord yet.</p>'}
+      </div>
     </div>`;
       document.getElementById('landlord-popup-overlay').classList.add('open');
     }
     function closeLandlordPopup() {
       document.getElementById('landlord-popup-overlay').classList.remove('open');
+    }
+    function openDealFromLandlord(dealId) {
+      closeLandlordPopup();
+      showPage('dashboard', document.querySelector('[data-page="dashboard"]'));
+      setTimeout(() => openDealDetail(dealId), 50);
     }
 
     function openClientDetail(clientId) {
