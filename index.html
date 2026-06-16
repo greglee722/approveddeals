@@ -1992,7 +1992,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v5.3</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v5.4</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -3555,7 +3555,7 @@
       return DUE_DATE_FIELDS.some(f => {
         if (!d[f.due]) return false;
         const n = parseFloat(d[f.needed] || 0), r = parseFloat(d[f.received] || 0);
-        if (r >= n && n > 0) return false; // already fully received
+        if (!(n > 0 && r < n)) return false; // nothing outstanding
         const due = new Date(d[f.due] + 'T00:00:00');
         return due >= today && due <= cutoff;
       });
@@ -3567,7 +3567,7 @@
       return DUE_DATE_FIELDS.some(f => {
         if (!d[f.due]) return false;
         const n = parseFloat(d[f.needed] || 0), r = parseFloat(d[f.received] || 0);
-        if (r >= n && n > 0) return false; // already fully received
+        if (!(n > 0 && r < n)) return false; // nothing outstanding
         const due = new Date(d[f.due] + 'T00:00:00');
         return due < today;
       });
@@ -3581,7 +3581,7 @@
       return fields.some(f => {
         if (!d[f.due]) return false;
         const n = parseFloat(d[f.needed] || 0), r = parseFloat(d[f.received] || 0);
-        if (r >= n && n > 0) return false;
+        if (!(n > 0 && r < n)) return false; // nothing outstanding
         const due = new Date(d[f.due] + 'T00:00:00');
         return due >= today && due <= cutoff;
       });
@@ -3593,7 +3593,7 @@
       return fields.some(f => {
         if (!d[f.due]) return false;
         const n = parseFloat(d[f.needed] || 0), r = parseFloat(d[f.received] || 0);
-        if (r >= n && n > 0) return false;
+        if (!(n > 0 && r < n)) return false; // nothing outstanding
         const due = new Date(d[f.due] + 'T00:00:00');
         return due < today;
       });
