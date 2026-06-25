@@ -1992,7 +1992,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v5.5</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v5.6</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -5480,7 +5480,8 @@ CRITICAL RULES:
 1. Payment amounts (fmr, lmr, secdep, broker, appfee, keyfee) MUST go into the "Needed" fields as numeric strings (e.g. "5000"), NOT into notes.
 2. Notes fields are ONLY for special instructions like "payable to X" or delivery notes — never for amounts.
 3. If a single amount applies to multiple payment types (e.g. "fmr/lmr/sec is $5000"), set each one's Needed field to that amount.
-4. For clients: extract ALL client names/emails into the "clients" array — even if they are new.
+4. For clients: extract ALL TENANT/applicant/renter names/emails into the "clients" array — even if they are new. Do NOT put cosigners or guarantors in "clients".
+4b. For cosigners/guarantors: a person described as a "cosigner", "co-signer", "guarantor", or "co-applicant backing the tenant" is NOT a client. Put them ONLY in the "cosigners" array (see below), and set "ncfNeeded" to the number of cosigners.
 5. For landlords: put the landlord name in "landlordName" even if not in the existing list.
 6. Match existing records by comparing names case-insensitively.
 7. For addresses: if the address is NOT in the available list, still fill addressDisplay and the addressStreet1/City/State/Zip fields so a new address record can be created automatically.
@@ -5521,6 +5522,9 @@ Return this exact JSON structure:
   "clients": [
     { "id": "existing client id if matched else ''", "first": "", "last": "", "email": "", "phone": "" }
   ],
+  "cosigners": [
+    { "name": "cosigner full name", "email": "cosigner email or ''", "forClient": "full name of the TENANT this person is cosigning for (must match a name in the clients array; if only one tenant, use that tenant)" }
+  ],
   "appfeeNeeded": "0", "appfeeReceived": "0", "appfeeDue": "YYYY-MM-DD or ''", "appfeeNotes": "",
   "fmrNeeded": "0", "fmrReceived": "0", "fmrDue": "YYYY-MM-DD or ''", "fmrDelivered": "", "fmrNotes": "special instructions only e.g. payable to X",
   "brokerNeeded": "0", "brokerReceived": "0", "brokerDue": "YYYY-MM-DD or ''", "brokerNotes": "special instructions only",
@@ -5547,7 +5551,8 @@ Example: "fmr/lmr/sec is $5000, lmr payable to landlord" → fmrNeeded:"5000", l
 Example: "security deposit $1750 collected and delivered" → secdepNeeded:"1750", secdepReceived:"1750", secdepDelivered:"Yes"
 Example: "broker fee of $4900 collected" → brokerNeeded:"4900", brokerReceived:"4900", brokerNotes:""
 Example: "fmr collected and delivered, lmr collected" → fmrReceived:fmrNeeded, fmrDelivered:"Yes", lmrReceived:lmrNeeded, lmrDelivered:""
-Example: "client is Greg Lee, greg@gmail.com" → clients:[{"id":"","first":"Greg","last":"Lee","email":"greg@gmail.com","phone":""}]`;
+Example: "client is Greg Lee, greg@gmail.com" → clients:[{"id":"","first":"Greg","last":"Lee","email":"greg@gmail.com","phone":""}]
+Example: "Tenant: John Doe, johndoe@gmail.com; Cosigner: Jane Doe, janedoe@gmail.com" → clients:[{"id":"","first":"John","last":"Doe","email":"johndoe@gmail.com","phone":""}], cosigners:[{"name":"Jane Doe","email":"janedoe@gmail.com","forClient":"John Doe"}], ncfNeeded:"1" — Jane is the cosigner, NOT a second client.`;
 
       try {
         // Status: Analyzing
@@ -5562,7 +5567,7 @@ Example: "client is Greg Lee, greg@gmail.com" → clients:[{"id":"","first":"Gre
           },
           body: JSON.stringify({
             model: 'claude-sonnet-4-6',
-            max_tokens: 1024,
+            max_tokens: 2048,
             messages: [{ role: 'user', content: text }],
             system: systemPrompt
           })
@@ -5735,6 +5740,27 @@ Example: "client is Greg Lee, greg@gmail.com" → clients:[{"id":"","first":"Gre
         }
       }
       renderSelectedClients();
+
+      // Cosigners — attach to the tenant they back; never created as separate clients
+      const aiCosigners = deal.cosigners || [];
+      if (aiCosigners.length) {
+        tempCosigners = aiCosigners
+          .filter(cs => cs && (cs.name || cs.email))
+          .map(cs => {
+            let link = null;
+            if (cs.forClient) {
+              const fc = cs.forClient.toLowerCase().trim();
+              link = selectedClients.find(c => c.name.toLowerCase().trim() === fc);
+            }
+            if (!link && selectedClients.length === 1) link = selectedClients[0];
+            return { clientId: link ? link.id : '', clientName: link ? link.name : '', name: cs.name || '', email: cs.email || '' };
+          });
+        if (tempCosigners.length) {
+          document.getElementById('df-ncf-needed').value = tempCosigners.length;
+          handleNCFNeeded();
+          renderCosignerSummary();
+        }
+      }
 
       // Trigger auto-stage
       autoStage();
