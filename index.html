@@ -1992,7 +1992,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v5.7</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v5.8</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -2531,16 +2531,16 @@
   <div id="toast"></div>
   <!-- CLIENT POPUP (from deal page) -->
   <div class="mini-overlay" id="client-popup-overlay">
-    <div class="mini-modal" style="width:480px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+    <div class="mini-modal" style="width:480px;max-height:90vh;display:flex;flex-direction:column;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-shrink:0;">
         <div class="mini-title" style="margin-bottom:0;" id="client-popup-name">Client</div>
         <button class="modal-close"
           style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);"
           onclick="closeClientPopup()">×</button>
       </div>
-      <div id="client-popup-body"></div>
+      <div id="client-popup-body" style="flex:1;min-height:0;overflow-y:auto;"></div>
       <div
-        style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;">
+        style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;flex-shrink:0;">
         <button class="btn btn-ghost" onclick="closeClientPopup()">Close</button>
       </div>
     </div>
@@ -2548,16 +2548,16 @@
 
   <!-- LANDLORD POPUP -->
   <div class="mini-overlay" id="landlord-popup-overlay" onclick="if(event.target===this)closeLandlordPopup()">
-    <div class="mini-modal" style="width:420px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+    <div class="mini-modal" style="width:420px;max-height:90vh;display:flex;flex-direction:column;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-shrink:0;">
         <div class="mini-title" style="margin-bottom:0;" id="landlord-popup-name">Landlord</div>
         <button class="modal-close"
           style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);"
           onclick="closeLandlordPopup()">×</button>
       </div>
-      <div id="landlord-popup-body"></div>
+      <div id="landlord-popup-body" style="flex:1;min-height:0;overflow-y:auto;"></div>
       <div
-        style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+        style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
         <button class="btn btn-ghost btn-sm" id="landlord-popup-edit-btn" onclick="closeLandlordPopup()">Edit
           Landlord</button>
         <button class="btn btn-ghost btn-sm" onclick="closeLandlordPopup()">Close</button>
@@ -5064,7 +5064,7 @@
     <div style="display:flex;flex-direction:column;gap:10px;font-size:13.5px;">
       ${c.email ? `<div style="display:flex;gap:12px;"><span style="color:var(--muted);min-width:60px;">Email</span><a href="mailto:${c.email}" style="color:#000;text-decoration:underline;">${c.email}</a></div>` : ''}
       ${c.phone ? `<div style="display:flex;gap:12px;"><span style="color:var(--muted);min-width:60px;">Phone</span><a href="tel:${c.phone}" style="color:#000;">${c.phone}</a></div>` : ''}
-      ${c.notes ? `<div style="display:flex;gap:12px;"><span style="color:var(--muted);min-width:60px;">Notes</span><span>${c.notes}</span></div>` : ''}
+      ${c.notes ? `<div style="display:flex;gap:12px;"><span style="color:var(--muted);min-width:60px;flex-shrink:0;">Notes</span><span style="max-height:160px;overflow-y:auto;white-space:pre-wrap;">${c.notes}</span></div>` : ''}
       ${cosigners.length ? `<div style="margin-top:4px;padding-top:10px;border-top:1px solid var(--border);">
         <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:8px;">Cosigners</div>
         ${cosigners.map(x => `<div style="font-size:13px;margin-bottom:4px;"><strong>${x.cosigner}</strong><span style="color:var(--muted);margin-left:8px;">${x.deal}</span></div>`).join('')}
@@ -5100,7 +5100,7 @@
     <div style="display:flex;flex-direction:column;gap:10px;font-size:13.5px;">
       ${l.email ? `<div style="display:flex;gap:12px;"><span style="color:var(--muted);min-width:60px;">Email</span><a href="mailto:${l.email}" style="color:#000;text-decoration:underline;">${l.email}</a></div>` : ''}
       ${l.phone ? `<div style="display:flex;gap:12px;"><span style="color:var(--muted);min-width:60px;">Phone</span><a href="tel:${l.phone}" style="color:#000;">${l.phone}</a></div>` : ''}
-      ${l.notes ? `<div style="display:flex;gap:12px;"><span style="color:var(--muted);min-width:60px;">Notes</span><span>${l.notes}</span></div>` : ''}
+      ${l.notes ? `<div style="display:flex;gap:12px;"><span style="color:var(--muted);min-width:60px;flex-shrink:0;">Notes</span><span style="max-height:160px;overflow-y:auto;white-space:pre-wrap;">${l.notes}</span></div>` : ''}
       ${!l.email && !l.phone && !l.notes ? '<p style="color:var(--muted);font-size:13px;">No contact info on file.</p>' : ''}
       <div style="margin-top:4px;padding-top:10px;border-top:1px solid var(--border);">
         <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:8px;">Related Deals${relatedDeals.length ? ' (' + relatedDeals.length + ')' : ''}</div>
