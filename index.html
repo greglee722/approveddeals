@@ -1992,7 +1992,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v5.8</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v5.9</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -2888,10 +2888,10 @@
   </div>
 
   <div class="mini-overlay" id="obj-overlay">
-    <div class="mini-modal" style="width:580px;">
-      <div class="mini-title" id="obj-modal-title">Add Record</div>
-      <div id="obj-modal-fields"></div>
-      <div class="mini-footer"><button class="btn btn-ghost" onclick="closeObjModal()">Cancel</button><button
+    <div class="mini-modal" style="width:580px;max-height:90vh;display:flex;flex-direction:column;">
+      <div class="mini-title" id="obj-modal-title" style="flex-shrink:0;">Add Record</div>
+      <div id="obj-modal-fields" style="flex:1;min-height:0;overflow-y:auto;"></div>
+      <div class="mini-footer" style="flex-shrink:0;"><button class="btn btn-ghost" onclick="closeObjModal()">Cancel</button><button
           class="btn btn-primary" onclick="saveObjModal()">Save</button></div>
     </div>
   </div>
