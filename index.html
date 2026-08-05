@@ -1992,7 +1992,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v6.2</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v6.3</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -2436,8 +2436,11 @@
           </div>
         </div>
         <div class="card" style="margin-bottom:18px;">
-          <div style="font-family:var(--font-head);font-size:15px;margin-bottom:2px;">Management Company Instructions</div>
-          <div style="font-size:12.5px;color:var(--muted);margin-bottom:12px;">Landlords with key/move-in instructions on file. Add or change instructions on the landlord record.</div>
+          <!-- .card has padding:0 — headers need their own inset to line up with the 14px cell padding -->
+          <div style="padding:16px 14px 12px;">
+            <div style="font-family:var(--font-head);font-size:15px;margin-bottom:2px;">Management Company Instructions</div>
+            <div style="font-size:12.5px;color:var(--muted);">Landlords with key/move-in instructions on file. Add or change instructions on the landlord record.</div>
+          </div>
           <div style="overflow-x:auto;">
             <table>
               <thead>
@@ -2452,23 +2455,22 @@
           </div>
         </div>
         <div class="card">
-          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:16px 14px 12px;">
             <div>
               <div style="font-family:var(--font-head);font-size:15px;margin-bottom:2px;">Upcoming Move-Ins</div>
-              <div style="font-size:12.5px;color:var(--muted);">Move-ins from today onward, soonest first. Past move-ins drop off automatically.</div>
+              <div style="font-size:12.5px;color:var(--muted);">Move-ins from today onward, grouped by date and landlord. Past move-ins drop off automatically.</div>
             </div>
             <button class="btn btn-outline btn-sm" style="flex-shrink:0;white-space:nowrap;"
               onclick="printOfficePickupList()">Print Office Pickup List</button>
           </div>
           <div style="overflow-x:auto;">
-            <table>
+            <!-- min-width so narrow viewports scroll instead of crushing Notes to one character wide -->
+            <table style="min-width:820px;">
               <thead>
                 <tr>
-                  <th style="width:110px;">Lease Start</th>
-                  <th style="width:200px;">Landlord</th>
                   <th>Address</th>
                   <th style="width:110px;">Contacted?</th>
-                  <th style="width:240px;">Notes</th>
+                  <th style="width:260px;">Notes</th>
                   <th style="width:100px;">Office Pick Up</th>
                   <th style="width:120px;"></th>
                 </tr>
@@ -6456,11 +6458,20 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
       return nm ? (db.landlords.find(x => (x.name || '').toLowerCase().trim() === nm) || null) : null;
     }
 
+    // Returns enriched rows ({deal, landlord, llName, addr}) sorted lease start → landlord
+    // → address, which is also the grouping order the table renders in.
     function keysUpcomingDeals() {
       const today = keysToday();
       return (db.deals || [])
         .filter(d => d.status !== 'archived' && d.leaseStart && d.leaseStart >= today)
-        .sort((a, b) => a.leaseStart < b.leaseStart ? -1 : a.leaseStart > b.leaseStart ? 1 : 0);
+        .map(d => {
+          const l = landlordForDeal(d);
+          return { deal: d, landlord: l, llName: (((l && l.name) || d.landlordName || '')).trim(), addr: resolveDealAddress(d) };
+        })
+        .sort((a, b) =>
+          a.deal.leaseStart.localeCompare(b.deal.leaseStart)
+          || a.llName.localeCompare(b.llName)
+          || a.addr.localeCompare(b.addr));
     }
 
     function dealTenants(deal) {
@@ -6483,24 +6494,30 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
         : `<tr class="empty-row"><td colspan="3">No key/move-in instructions on file yet. Add them on a landlord record.</td></tr>`;
 
       const deals = keysUpcomingDeals();
-      dTbody.innerHTML = deals.length
-        ? deals.map(d => {
-          const l = landlordForDeal(d);
+      // Grouped by lease start + landlord. Date and landlord live in the group header, so
+      // the rows carry only what varies within a group.
+      let html = '';
+      let groupKey = null;
+      deals.forEach(r => {
+        const d = r.deal;
+        const key = d.leaseStart + '|' + r.llName.toLowerCase();
+        if (key !== groupKey) {
+          groupKey = key;
+          const l = r.landlord;
           const instr = l ? (l.moveInInstructions || '').trim() : '';
-          const nm = keysEsc((l && l.name) || d.landlordName || '—');
+          const nm = keysEsc(r.llName || '—');
           // Only clickable when a landlord record actually exists to open.
           const nameEl = l
-            ? `<span onclick="openLandlordPopup('${l.id}','')" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;font-weight:500;">${nm}</span>`
-            : `<span style="font-weight:500;">${nm}</span>`;
-          const llCell = instr
-            ? `<td>${nameEl}</td>`
-            : `<td style="background:var(--warning-soft);">${nameEl}
-        <div style="font-size:11px;color:var(--warning);margin-top:3px;">${l ? 'No instructions yet — click to add.' : 'No landlord record on this deal.'}</div></td>`;
-          const contacted = d.keyContacted === 'Yes' ? 'Yes' : 'No';
-          return `<tr>
-      <td style="white-space:nowrap;">${formatDate(d.leaseStart)}</td>
-      ${llCell}
-      <td>${keysEsc(resolveDealAddress(d))}</td>
+            ? `<span onclick="openLandlordPopup('${l.id}','')" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;">${nm}</span>`
+            : nm;
+          const warn = instr ? '' :
+            `<span style="font-size:11px;font-weight:500;color:var(--warning);margin-left:10px;">${l ? 'No instructions yet — click to add.' : 'No landlord record on this deal.'}</span>`;
+          html += `<tr><td colspan="5" style="${instr ? 'background:var(--surface2);' : 'background:var(--warning-soft);'}padding:9px 14px;font-size:13px;font-weight:600;border-top:1px solid var(--border);">
+        <span style="color:var(--muted);font-weight:500;">${formatDate(d.leaseStart)}</span> &nbsp;·&nbsp; ${nameEl}${warn}</td></tr>`;
+        }
+        const contacted = d.keyContacted === 'Yes' ? 'Yes' : 'No';
+        html += `<tr>
+      <td>${keysEsc(r.addr)}</td>
       <td><select onchange="saveKeyField('${d.id}','keyContacted',this.value)" style="width:100%;font-size:12.5px;padding:5px 7px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-body);">
         <option value="No"${contacted === 'No' ? ' selected' : ''}>No</option>
         <option value="Yes"${contacted === 'Yes' ? ' selected' : ''}>Yes</option>
@@ -6508,8 +6525,8 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
       <td><textarea onchange="saveKeyField('${d.id}','keyNotes',this.value)" placeholder="Unique circumstances for this deal…" style="width:100%;height:52px;font-size:12.5px;padding:6px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-body);resize:vertical;box-sizing:border-box;">${keysEsc(d.keyNotes || '')}</textarea></td>
       <td style="text-align:center;"><input type="checkbox" ${d.officePickup === 'Yes' ? 'checked' : ''} onchange="saveKeyField('${d.id}','officePickup',this.checked ? 'Yes' : '')" style="width:16px;height:16px;cursor:pointer;"></td>
       <td><button class="btn btn-ghost btn-xs" onclick="openKeyInstructionsDraftModal('${d.id}')">Generate Email</button></td></tr>`;
-        }).join('')
-        : `<tr class="empty-row"><td colspan="7">No upcoming move-ins.</td></tr>`;
+      });
+      dTbody.innerHTML = html || `<tr class="empty-row"><td colspan="5">No upcoming move-ins.</td></tr>`;
     }
 
     async function saveKeyField(dealId, field, value) {
@@ -6590,19 +6607,20 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
     }
 
     function printOfficePickupList() {
-      const rows = keysUpcomingDeals().filter(d => d.officePickup === 'Yes');
+      const rows = keysUpcomingDeals().filter(r => r.deal.officePickup === 'Yes');
       if (!rows.length) { alert('No upcoming move-ins are marked Office Pick Up.'); return; }
       const generated = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
       const th = 'border:1px solid #000;padding:6px 8px;text-align:left;';
       const td = 'border:1px solid #000;padding:6px 8px;';
-      const body = rows.map(d => {
-        const l = landlordForDeal(d);
+      // Flat table, but in the same lease start → landlord → address order as the tab.
+      const body = rows.map(r => {
+        const d = r.deal;
         return '<tr>'
           + '<td style="border:1px solid #000;width:34px;height:36px;"></td>'
           + '<td style="' + td + '">' + keysEsc(dealTenants(d) || '—') + '</td>'
-          + '<td style="' + td + '">' + keysEsc(resolveDealAddress(d)) + '</td>'
+          + '<td style="' + td + '">' + keysEsc(r.addr) + '</td>'
           + '<td style="' + td + 'white-space:nowrap;">' + formatDate(d.leaseStart) + '</td>'
-          + '<td style="' + td + '">' + keysEsc((l && l.name) || d.landlordName || '—') + '</td>'
+          + '<td style="' + td + '">' + keysEsc(r.llName || '—') + '</td>'
           + '<td style="' + td + 'white-space:pre-wrap;">' + keysEsc((d.keyNotes || '').trim()) + '</td>'
           + '</tr>';
       }).join('');
