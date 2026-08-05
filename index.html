@@ -1992,7 +1992,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v6.3</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v6.4</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -6450,12 +6450,18 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
 
     function landlordForDeal(deal) {
       if (!deal) return null;
-      if (deal.landlordId) {
-        const byId = db.landlords.find(x => x.id === deal.landlordId);
-        if (byId) return byId;
+      // Snapshot first, FK second — the same precedence resolveDealAddress() uses, and for
+      // the same reason: some deals carry a landlordId pointing at a different company than
+      // their landlordName says, and every other screen displays the name. Trusting the FK
+      // here filed 4 Boston Management Group deals under The Hamilton Company.
+      const nm = (deal.landlordName || '').trim().toLowerCase();
+      if (nm) {
+        const matches = db.landlords.filter(x => (x.name || '').trim().toLowerCase() === nm);
+        // Duplicate landlord records share a name (e.g. Heath Properties ×2) — prefer the
+        // one the deal actually points at, else the first.
+        if (matches.length) return matches.find(x => x.id === deal.landlordId) || matches[0];
       }
-      const nm = (deal.landlordName || '').toLowerCase().trim();
-      return nm ? (db.landlords.find(x => (x.name || '').toLowerCase().trim() === nm) || null) : null;
+      return (deal.landlordId ? db.landlords.find(x => x.id === deal.landlordId) : null) || null;
     }
 
     // Returns enriched rows ({deal, landlord, llName, addr}) sorted lease start → landlord
@@ -6466,7 +6472,9 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
         .filter(d => d.status !== 'archived' && d.leaseStart && d.leaseStart >= today)
         .map(d => {
           const l = landlordForDeal(d);
-          return { deal: d, landlord: l, llName: (((l && l.name) || d.landlordName || '')).trim(), addr: resolveDealAddress(d) };
+          // Display the deal's own snapshot so the group label always matches what the
+          // Dashboard and every other screen show, even when no landlord record exists.
+          return { deal: d, landlord: l, llName: ((d.landlordName || (l && l.name) || '')).trim(), addr: resolveDealAddress(d) };
         })
         .sort((a, b) =>
           a.deal.leaseStart.localeCompare(b.deal.leaseStart)
