@@ -1992,7 +1992,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v6.4</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v6.5</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -6547,13 +6547,22 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
 
     let _keyEmailDealId = null;
 
+    // Same list formatting the NCF draft uses — a plain join(' and ') reads
+    // "Achilles and Alp and Gordon and Henry" on a 4-tenant deal.
+    function keysNameList(names) {
+      if (!names.length) return 'there';
+      if (names.length === 1) return names[0];
+      if (names.length === 2) return names[0] + ' and ' + names[1];
+      return names.slice(0, -1).join(', ') + ', and ' + names[names.length - 1];
+    }
+
     function buildKeyInstructionsEmail(deal, landlord) {
       const firstNames = (deal.clients || [])
         .map(c => db.clients.find(cl => cl.id === c.id))
         .filter(Boolean)
         .map(c => c.first)
         .filter(Boolean);
-      const greetName = firstNames.length ? firstNames.join(' and ') : 'there';
+      const greetName = keysNameList(firstNames);
       const addr = resolveDealAddress(deal);
       const moveIn = deal.leaseStart ? formatDate(deal.leaseStart) : '';
       const instr = (landlord.moveInInstructions || '').trim();
