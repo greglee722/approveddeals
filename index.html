@@ -1992,7 +1992,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v6.5</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v6.6</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -3126,6 +3126,11 @@
         <button class="modal-close"
           style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);"
           onclick="closeEmailDraftModal()">×</button>
+      </div>
+      <!-- Shown when a tenant on the deal has no client record, so a short recipient list
+           can't pass for a complete one. See dealClientContacts(). -->
+      <div id="email-draft-warn-row"
+        style="display:none;margin-bottom:12px;background:var(--warning-soft);border:1px solid var(--warning);border-radius:6px;padding:9px 11px;font-size:12.5px;color:#7a5c00;">
       </div>
       <div id="email-draft-cosigner-row" style="display:none;margin-bottom:12px;">
         <div
@@ -6268,13 +6273,10 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
       _emailDraftDealId = dealId;
       _keyEmailDealId = null;
 
-      const emails = (deal.clients || [])
-        .map(c => db.clients.find(cl => cl.id === c.id))
-        .filter(Boolean)
-        .map(c => c.email)
-        .filter(Boolean);
+      const emails = dealClientContacts(deal).emails;
 
       setEmailDraftTitle('Welcome Email Draft');
+      setEmailDraftWarning(deal);
       document.getElementById('email-draft-to').textContent = emails.length ? emails.join(', ') : '(no client emails on file)';
       document.getElementById('email-draft-subject').textContent = 'Approval for ' + resolveDealAddress(deal);
       const welcomeContent = generateWelcomeEmail(deal);
@@ -6346,6 +6348,8 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
       _emailDraftDealId = dealId;
       _keyEmailDealId = null;
       setEmailDraftTitle('Notarized Cosigner Email Draft');
+      // This flow mails cosigners, not tenants — the tenant-email warning doesn't apply.
+      document.getElementById('email-draft-warn-row').style.display = 'none';
 
       const address = deal.name || resolveDealAddress(deal);
 
@@ -6547,6 +6551,36 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
 
     let _keyEmailDealId = null;
 
+    // A deal stores each tenant as {id, name}, but the email lives on the client record.
+    // If that record is missing (or has no email) the tenant silently vanishes from the
+    // recipient list — 5 deals' worth of tenants went unmailed for months that way.
+    // Returns what we can actually reach and who we can't, so the caller can say so.
+    function dealClientContacts(deal) {
+      const emails = [], missing = [];
+      (deal.clients || []).forEach(c => {
+        const rec = db.clients.find(cl => cl.id === c.id);
+        if (!rec) { missing.push((c.name || '(unnamed)') + ' (no client record)'); return; }
+        const em = (rec.email || '').trim();
+        if (em) emails.push(em);
+        else missing.push(((rec.first || '') + ' ' + (rec.last || '')).trim() || c.name || '(unnamed)');
+      });
+      return { emails: emails, missing: missing };
+    }
+
+    function setEmailDraftWarning(deal) {
+      const row = document.getElementById('email-draft-warn-row');
+      if (!row) return;
+      const c = dealClientContacts(deal);
+      if (!c.missing.length) { row.style.display = 'none'; row.innerHTML = ''; return; }
+      const total = (deal.clients || []).length;
+      row.style.display = '';
+      row.innerHTML = '<b>' + c.missing.length + ' of ' + total + ' tenant' + (total === 1 ? '' : 's')
+        + ' cannot be emailed:</b> ' + keysEsc(c.missing.join(', '))
+        + (c.emails.length
+          ? ' — this draft only reaches the ' + c.emails.length + ' address' + (c.emails.length === 1 ? '' : 'es') + ' above.'
+          : ' — <b>this draft has no recipients at all.</b>');
+    }
+
     // Same list formatting the NCF draft uses — a plain join(' and ') reads
     // "Achilles and Alp and Gordon and Henry" on a 4-tenant deal.
     function keysNameList(names) {
@@ -6593,13 +6627,10 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
       _emailDraftDealId = dealId;
       _keyEmailDealId = dealId;
 
-      const emails = (deal.clients || [])
-        .map(c => db.clients.find(cl => cl.id === c.id))
-        .filter(Boolean)
-        .map(c => c.email)
-        .filter(Boolean);
+      const emails = dealClientContacts(deal).emails;
 
       setEmailDraftTitle('Key/Move-in Instructions Draft');
+      setEmailDraftWarning(deal);
       document.getElementById('email-draft-to').textContent = emails.length ? emails.join(', ') : '(no client emails on file)';
       document.getElementById('email-draft-subject').textContent = 'Move-In & Key Instructions — ' + resolveDealAddress(deal);
       const content = buildKeyInstructionsEmail(deal, landlord);
