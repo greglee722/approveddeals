@@ -1992,7 +1992,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v5.9</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v6.0</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -6347,8 +6347,7 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
       const d = db.deals.find(x => x.id === id);
       if (!d) return;
       _invoiceDealId = id;
-      const _addr = d.addressId ? db.addresses.find(x => x.id === d.addressId) : null;
-      document.getElementById('inv-rent').value = (_addr && _addr.rent) ? _addr.rent : '';
+      document.getElementById('inv-rent').value = '';
       document.getElementById('inv-amount').value = d.brokerNeeded || '';
       document.getElementById('inv-paid').checked = false;
       document.getElementById('inv-paid-date').value = new Date().toISOString().split('T')[0];
@@ -6383,10 +6382,7 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
       const amount = document.getElementById('inv-amount').value;
       const isPaid = document.getElementById('inv-paid').checked;
       const paidDate = document.getElementById('inv-paid-date').value;
-      const addr = d.addressId ? db.addresses.find(x => x.id === d.addressId) : null;
-      const addrStr = addr
-        ? [addr.street1, addr.street2, addr.city, addr.state].filter(Boolean).join(', ')
-        : (d.name || '—');
+      const addrStr = resolveDealAddress(d);
       const rentVal = document.getElementById('inv-rent').value;
       const rent = rentVal ? '$' + parseFloat(rentVal).toLocaleString() : '—';
       const tenants = (d.clients || []).map(function(c) { return c.name; }).filter(Boolean).join(', ') || '—';
