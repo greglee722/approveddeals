@@ -1992,7 +1992,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v6.1</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v6.2</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -2002,8 +2002,6 @@
           Needed</button>
         <button class="nav-tab" data-page="clients" onclick="showPage('clients',this)">Clients</button>
         <button class="nav-tab" data-page="addresses" onclick="showPage('addresses',this)">Addresses</button>
-        <button class="nav-tab" data-page="landlords" onclick="showPage('landlords',this)">Landlords</button>
-        <button class="nav-tab" data-page="agents" onclick="showPage('agents',this)">Agents</button>
         <button class="nav-tab" data-page="keys" onclick="showPage('keys',this)">Key Instructions</button>
         <!-- HAMBURGER -->
         <div style="position:relative;">
@@ -2021,6 +2019,24 @@
           </button>
           <div id="hamburger-menu"
             style="display:none;position:absolute;top:calc(100% + 8px);right:0;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);min-width:180px;z-index:200;padding:6px 0;animation:modalIn 0.15s ease;">
+            <button class="hamburger-item" data-page="landlords"
+              onclick="showPage('landlords',document.querySelector('[data-page=landlords]'));toggleHamburger()">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M3 21h18" />
+                <path d="M5 21V7l7-4 7 4v14" />
+                <path d="M10 21v-6h4v6" />
+              </svg>
+              Landlords
+            </button>
+            <button class="hamburger-item" data-page="agents"
+              onclick="showPage('agents',document.querySelector('[data-page=agents]'));toggleHamburger()">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              </svg>
+              Agents
+            </button>
             <button class="hamburger-item" data-page="archived"
               onclick="showPage('archived',document.querySelector('[data-page=archived]'));toggleHamburger()">
               <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
