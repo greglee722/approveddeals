@@ -1992,7 +1992,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v6.0</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v6.1</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -2004,6 +2004,7 @@
         <button class="nav-tab" data-page="addresses" onclick="showPage('addresses',this)">Addresses</button>
         <button class="nav-tab" data-page="landlords" onclick="showPage('landlords',this)">Landlords</button>
         <button class="nav-tab" data-page="agents" onclick="showPage('agents',this)">Agents</button>
+        <button class="nav-tab" data-page="keys" onclick="showPage('keys',this)">Key Instructions</button>
         <!-- HAMBURGER -->
         <div style="position:relative;">
           <button id="hamburger-btn" onclick="toggleHamburger()"
@@ -2407,6 +2408,56 @@
                 </tr>
               </thead>
               <tbody id="landlords-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="page" id="page-keys">
+        <div class="page-hdr">
+          <div>
+            <div class="page-title">Key/Move-in Instructions</div>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:18px;">
+          <div style="font-family:var(--font-head);font-size:15px;margin-bottom:2px;">Management Company Instructions</div>
+          <div style="font-size:12.5px;color:var(--muted);margin-bottom:12px;">Landlords with key/move-in instructions on file. Add or change instructions on the landlord record.</div>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:220px;">Landlord</th>
+                  <th>Key/Move-in Instructions</th>
+                  <th style="width:70px;"></th>
+                </tr>
+              </thead>
+              <tbody id="keys-landlords-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;">
+            <div>
+              <div style="font-family:var(--font-head);font-size:15px;margin-bottom:2px;">Upcoming Move-Ins</div>
+              <div style="font-size:12.5px;color:var(--muted);">Move-ins from today onward, soonest first. Past move-ins drop off automatically.</div>
+            </div>
+            <button class="btn btn-outline btn-sm" style="flex-shrink:0;white-space:nowrap;"
+              onclick="printOfficePickupList()">Print Office Pickup List</button>
+          </div>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:110px;">Lease Start</th>
+                  <th style="width:200px;">Landlord</th>
+                  <th>Address</th>
+                  <th style="width:110px;">Contacted?</th>
+                  <th style="width:240px;">Notes</th>
+                  <th style="width:100px;">Office Pick Up</th>
+                  <th style="width:120px;"></th>
+                </tr>
+              </thead>
+              <tbody id="keys-deals-tbody"></tbody>
             </table>
           </div>
         </div>
@@ -3053,7 +3104,7 @@
   <div class="mini-overlay" id="email-draft-overlay">
     <div class="mini-modal" style="width:680px;max-height:90vh;overflow-y:auto;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-        <div class="mini-title" style="margin-bottom:0;">Welcome Email Draft</div>
+        <div class="mini-title" id="email-draft-title" style="margin-bottom:0;">Welcome Email Draft</div>
         <button class="modal-close"
           style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);"
           onclick="closeEmailDraftModal()">×</button>
@@ -3351,6 +3402,7 @@
         renderDraftsTable();
         renderPaymentsTable();
         renderDeliveryTable();
+        renderKeysPage();
         restoreFromHash();
         // After a Drive re-auth redirect the URL hash is lost, so reopen the deal we left from.
         const _returnDeal = localStorage.getItem('adcrm_return_deal');
@@ -3533,6 +3585,7 @@
       if (p === 'addresses') renderObjTable('address');
       if (p === 'landlords') renderObjTable('landlord');
       if (p === 'agents') renderObjTable('agent');
+      if (p === 'keys') renderKeysPage();
       if (p === 'archived') renderArchivedTable();
       if (p === 'drafts') renderDraftsTable();
       if (p === 'requests') renderRequestsTable();
@@ -4308,7 +4361,8 @@
     <div class="form-group full"><label>Name</label><input type="text" id="of-name"></div>
     <div class="form-group"><label>Email</label><input type="email" id="of-email"></div>
     <div class="form-group"><label>Phone</label><input type="tel" id="of-phone"></div>
-    <div class="form-group full"><label>Notes</label><textarea id="of-notes"></textarea></div></div>`},
+    <div class="form-group full"><label>Notes</label><textarea id="of-notes"></textarea></div>
+    <div class="form-group full"><label>Key/Move-in Instructions</label><textarea id="of-movein" placeholder="Generic key pickup / move-in instructions for this management company. Shown on the Key Instructions tab and used in the key instructions email."></textarea></div></div>`},
       agent: {
         title: 'Agent', fields: `<div class="form-2col">
     <div class="form-group full"><label>Name</label><input type="text" id="of-name"></div>
@@ -4334,7 +4388,9 @@
         renderClientCosigners();
       }
       if (type === 'address') { sf('of-street1', rec.street1); sf('of-street2', rec.street2); sf('of-city', rec.city); sf('of-state', rec.state); sf('of-zip', rec.zip); sf('of-rent', rec.rent); sf('of-beds', rec.beds); sf('of-baths', rec.baths); }
-      if (type === 'landlord' || type === 'agent') { sf('of-name', rec.name); sf('of-email', rec.email); sf('of-phone', rec.phone); sf('of-notes', rec.notes); }
+      if (type === 'agent') { sf('of-name', rec.name); sf('of-email', rec.email); sf('of-phone', rec.phone); sf('of-notes', rec.notes); }
+      // landlord kept separate from agent: it carries moveInInstructions, which a shared branch would drop
+      if (type === 'landlord') { sf('of-name', rec.name); sf('of-email', rec.email); sf('of-phone', rec.phone); sf('of-notes', rec.notes); sf('of-movein', rec.moveInInstructions); }
     }
     function closeObjModal() { document.getElementById('obj-overlay').classList.remove('open'); objModalFromDD = false; }
     async function saveObjModal() {
@@ -4346,7 +4402,9 @@
         rec.cosigners = window._clientCosigners || [];
       }
       if (type === 'address') { rec.street1 = gf('of-street1'); rec.street2 = gf('of-street2'); rec.city = gf('of-city'); rec.state = gf('of-state'); rec.zip = gf('of-zip'); rec.rent = gf('of-rent'); rec.beds = gf('of-beds'); rec.baths = gf('of-baths'); }
-      if (type === 'landlord' || type === 'agent') { rec.name = gf('of-name'); rec.email = gf('of-email'); rec.phone = gf('of-phone'); rec.notes = gf('of-notes'); }
+      if (type === 'agent') { rec.name = gf('of-name'); rec.email = gf('of-email'); rec.phone = gf('of-phone'); rec.notes = gf('of-notes'); }
+      // rec is rebuilt from scratch on every save, so landlord MUST carry moveInInstructions here or it is wiped
+      if (type === 'landlord') { rec.name = gf('of-name'); rec.email = gf('of-email'); rec.phone = gf('of-phone'); rec.notes = gf('of-notes'); rec.moveInInstructions = gf('of-movein'); }
       const key = type === 'address' ? 'addresses' : type + 's';
       if (editingObjId) db[key] = db[key].map(x => x.id === editingObjId ? rec : x);
       else db[key].push(rec);
@@ -4356,6 +4414,7 @@
         setTimeout(() => selectDD(type, rec.id, label), 50);
       }
       closeObjModal(); renderObjTable(type);
+      if (type === 'landlord') renderKeysPage();
     }
 
     // ══════════════════════════════════════
@@ -5101,6 +5160,7 @@
       ${l.email ? `<div style="display:flex;gap:12px;"><span style="color:var(--muted);min-width:60px;">Email</span><a href="mailto:${l.email}" style="color:#000;text-decoration:underline;">${l.email}</a></div>` : ''}
       ${l.phone ? `<div style="display:flex;gap:12px;"><span style="color:var(--muted);min-width:60px;">Phone</span><a href="tel:${l.phone}" style="color:#000;">${l.phone}</a></div>` : ''}
       ${l.notes ? `<div style="display:flex;gap:12px;"><span style="color:var(--muted);min-width:60px;flex-shrink:0;">Notes</span><span style="max-height:160px;overflow-y:auto;white-space:pre-wrap;">${l.notes}</span></div>` : ''}
+      ${l.moveInInstructions ? `<div style="display:flex;gap:12px;"><span style="color:var(--muted);min-width:60px;flex-shrink:0;">Key/Move-in</span><span style="max-height:160px;overflow-y:auto;white-space:pre-wrap;">${l.moveInInstructions}</span></div>` : ''}
       ${!l.email && !l.phone && !l.notes ? '<p style="color:var(--muted);font-size:13px;">No contact info on file.</p>' : ''}
       <div style="margin-top:4px;padding-top:10px;border-top:1px solid var(--border);">
         <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:8px;">Related Deals${relatedDeals.length ? ' (' + relatedDeals.length + ')' : ''}</div>
@@ -6188,6 +6248,7 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
       const deal = db.deals.find(d => d.id === dealId);
       if (!deal) return;
       _emailDraftDealId = dealId;
+      _keyEmailDealId = null;
 
       const emails = (deal.clients || [])
         .map(c => db.clients.find(cl => cl.id === c.id))
@@ -6195,6 +6256,7 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
         .map(c => c.email)
         .filter(Boolean);
 
+      setEmailDraftTitle('Welcome Email Draft');
       document.getElementById('email-draft-to').textContent = emails.length ? emails.join(', ') : '(no client emails on file)';
       document.getElementById('email-draft-subject').textContent = 'Approval for ' + resolveDealAddress(deal);
       const welcomeContent = generateWelcomeEmail(deal);
@@ -6208,11 +6270,20 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
     function closeEmailDraftModal() {
       document.getElementById('email-draft-overlay').classList.remove('open');
       _emailDraftDealId = null;
+      _keyEmailDealId = null;
+    }
+
+    // The draft modal is shared by the welcome, NCF and key-instructions flows; each sets
+    // its own title so the header stops claiming every draft is a welcome email.
+    function setEmailDraftTitle(t) {
+      const el = document.getElementById('email-draft-title');
+      if (el) el.textContent = t;
     }
 
     function copyEmailDraftBody() {
       const plain = document.getElementById('email-draft-body').value;
       const html = _emailDraftBodyHtml || plain;
+      markKeyContactedIfPending();
       if (navigator.clipboard && window.ClipboardItem) {
         navigator.clipboard.write([
           new ClipboardItem({
@@ -6240,6 +6311,7 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
     }
 
     function openEmailInMailClient() {
+      markKeyContactedIfPending();
       const to = (document.getElementById('email-draft-to').textContent || '').trim();
       const subject = (document.getElementById('email-draft-subject').textContent || '').trim();
       const body = document.getElementById('email-draft-body').value;
@@ -6254,6 +6326,8 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
       const deal = db.deals.find(d => d.id === dealId);
       if (!deal) return;
       _emailDraftDealId = dealId;
+      _keyEmailDealId = null;
+      setEmailDraftTitle('Notarized Cosigner Email Draft');
 
       const address = deal.name || resolveDealAddress(deal);
 
@@ -6337,6 +6411,203 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
       document.getElementById('email-draft-to').textContent = c.email || '(no cosigner email on file)';
       const clientRec = c.clientId ? db.clients.find(cl => cl.id === c.clientId) : null;
       document.getElementById('email-draft-cc').textContent = (clientRec && clientRec.email) ? clientRec.email : '';
+    }
+
+    // ── KEY / MOVE-IN INSTRUCTIONS ──────────────────────────────────────────────────
+
+    // Landlord instructions and deal notes are free text that lands in innerHTML, in a
+    // textarea, and in the print popup — escape at every insertion point.
+    function keysEsc(s) {
+      return (s == null ? '' : String(s))
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    // Local calendar date. toISOString() is UTC and rolls to tomorrow after 8pm EDT,
+    // which would hide a move-in that is still today.
+    function keysToday() {
+      const t = new Date();
+      return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+    }
+
+    function landlordForDeal(deal) {
+      if (!deal) return null;
+      if (deal.landlordId) {
+        const byId = db.landlords.find(x => x.id === deal.landlordId);
+        if (byId) return byId;
+      }
+      const nm = (deal.landlordName || '').toLowerCase().trim();
+      return nm ? (db.landlords.find(x => (x.name || '').toLowerCase().trim() === nm) || null) : null;
+    }
+
+    function keysUpcomingDeals() {
+      const today = keysToday();
+      return (db.deals || [])
+        .filter(d => d.status !== 'archived' && d.leaseStart && d.leaseStart >= today)
+        .sort((a, b) => a.leaseStart < b.leaseStart ? -1 : a.leaseStart > b.leaseStart ? 1 : 0);
+    }
+
+    function dealTenants(deal) {
+      return (deal.clients || []).map(c => c.name).filter(Boolean).join(', ');
+    }
+
+    function renderKeysPage() {
+      const lTbody = document.getElementById('keys-landlords-tbody');
+      const dTbody = document.getElementById('keys-deals-tbody');
+      if (!lTbody || !dTbody) return;
+
+      const withInstr = (db.landlords || [])
+        .filter(l => (l.moveInInstructions || '').trim())
+        .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      lTbody.innerHTML = withInstr.length
+        ? withInstr.map(l => `<tr>
+      <td style="font-weight:500;"><span onclick="openLandlordPopup('${l.id}','')" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;">${keysEsc(l.name || '—')}</span></td>
+      <td style="white-space:pre-wrap;font-size:12.5px;">${keysEsc(l.moveInInstructions)}</td>
+      <td><button class="btn btn-ghost btn-xs" onclick="openObjModal('landlord',false,'${l.id}')">Edit</button></td></tr>`).join('')
+        : `<tr class="empty-row"><td colspan="3">No key/move-in instructions on file yet. Add them on a landlord record.</td></tr>`;
+
+      const deals = keysUpcomingDeals();
+      dTbody.innerHTML = deals.length
+        ? deals.map(d => {
+          const l = landlordForDeal(d);
+          const instr = l ? (l.moveInInstructions || '').trim() : '';
+          const nm = keysEsc((l && l.name) || d.landlordName || '—');
+          // Only clickable when a landlord record actually exists to open.
+          const nameEl = l
+            ? `<span onclick="openLandlordPopup('${l.id}','')" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;font-weight:500;">${nm}</span>`
+            : `<span style="font-weight:500;">${nm}</span>`;
+          const llCell = instr
+            ? `<td>${nameEl}</td>`
+            : `<td style="background:var(--warning-soft);">${nameEl}
+        <div style="font-size:11px;color:var(--warning);margin-top:3px;">${l ? 'No instructions yet — click to add.' : 'No landlord record on this deal.'}</div></td>`;
+          const contacted = d.keyContacted === 'Yes' ? 'Yes' : 'No';
+          return `<tr>
+      <td style="white-space:nowrap;">${formatDate(d.leaseStart)}</td>
+      ${llCell}
+      <td>${keysEsc(resolveDealAddress(d))}</td>
+      <td><select onchange="saveKeyField('${d.id}','keyContacted',this.value)" style="width:100%;font-size:12.5px;padding:5px 7px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-body);">
+        <option value="No"${contacted === 'No' ? ' selected' : ''}>No</option>
+        <option value="Yes"${contacted === 'Yes' ? ' selected' : ''}>Yes</option>
+      </select></td>
+      <td><textarea onchange="saveKeyField('${d.id}','keyNotes',this.value)" placeholder="Unique circumstances for this deal…" style="width:100%;height:52px;font-size:12.5px;padding:6px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-body);resize:vertical;box-sizing:border-box;">${keysEsc(d.keyNotes || '')}</textarea></td>
+      <td style="text-align:center;"><input type="checkbox" ${d.officePickup === 'Yes' ? 'checked' : ''} onchange="saveKeyField('${d.id}','officePickup',this.checked ? 'Yes' : '')" style="width:16px;height:16px;cursor:pointer;"></td>
+      <td><button class="btn btn-ghost btn-xs" onclick="openKeyInstructionsDraftModal('${d.id}')">Generate Email</button></td></tr>`;
+        }).join('')
+        : `<tr class="empty-row"><td colspan="7">No upcoming move-ins.</td></tr>`;
+    }
+
+    async function saveKeyField(dealId, field, value) {
+      const deal = db.deals.find(d => d.id === dealId);
+      if (!deal) return;
+      deal[field] = value;
+      deal.lastUpdated = new Date().toISOString();
+      await saveRecord('deals', deal);
+    }
+
+    let _keyEmailDealId = null;
+
+    function buildKeyInstructionsEmail(deal, landlord) {
+      const firstNames = (deal.clients || [])
+        .map(c => db.clients.find(cl => cl.id === c.id))
+        .filter(Boolean)
+        .map(c => c.first)
+        .filter(Boolean);
+      const greetName = firstNames.length ? firstNames.join(' and ') : 'there';
+      const addr = resolveDealAddress(deal);
+      const moveIn = deal.leaseStart ? formatDate(deal.leaseStart) : '';
+      const instr = (landlord.moveInInstructions || '').trim();
+      const notes = (deal.keyNotes || '').trim();
+
+      let plain = 'Hi ' + greetName + ',\n\n';
+      plain += 'Here are your key pickup and move-in instructions for ' + addr + (moveIn ? ' (move-in ' + moveIn + ')' : '') + '.\n\n';
+      plain += instr + '\n';
+      if (notes) plain += '\nAdditional notes for your move-in:\n' + notes + '\n';
+      plain += '\nPlease reach out if you have any questions.\n\nBest,\nNew Wave Boston Real Estate\n617-259-1760';
+
+      let html = '<p>Hi ' + keysEsc(greetName) + ',</p>';
+      html += '<p>Here are your key pickup and move-in instructions for <b>' + keysEsc(addr) + '</b>' + (moveIn ? ' (move-in ' + keysEsc(moveIn) + ')' : '') + '.</p>';
+      html += '<p style="white-space:pre-wrap;">' + keysEsc(instr) + '</p>';
+      if (notes) html += '<p><b>Additional notes for your move-in:</b><br><span style="white-space:pre-wrap;">' + keysEsc(notes) + '</span></p>';
+      html += '<p>Please reach out if you have any questions.</p><p>Best,<br>New Wave Boston Real Estate<br>617-259-1760</p>';
+      return { plain: plain, html: html };
+    }
+
+    function openKeyInstructionsDraftModal(dealId) {
+      const deal = db.deals.find(d => d.id === dealId);
+      if (!deal) return;
+      const landlord = landlordForDeal(deal);
+      if (!landlord || !(landlord.moveInInstructions || '').trim()) {
+        alert('No key/move-in instructions on file for ' + (deal.landlordName || 'this landlord') + '.\n\nAdd them on the landlord record first — click the landlord name in the table.');
+        return;
+      }
+      _emailDraftDealId = dealId;
+      _keyEmailDealId = dealId;
+
+      const emails = (deal.clients || [])
+        .map(c => db.clients.find(cl => cl.id === c.id))
+        .filter(Boolean)
+        .map(c => c.email)
+        .filter(Boolean);
+
+      setEmailDraftTitle('Key/Move-in Instructions Draft');
+      document.getElementById('email-draft-to').textContent = emails.length ? emails.join(', ') : '(no client emails on file)';
+      document.getElementById('email-draft-subject').textContent = 'Move-In & Key Instructions — ' + resolveDealAddress(deal);
+      const content = buildKeyInstructionsEmail(deal, landlord);
+      _emailDraftBodyHtml = content.html;
+      document.getElementById('email-draft-body').value = content.plain;
+      document.getElementById('email-draft-cosigner-row').style.display = 'none';
+      document.getElementById('email-draft-cc-row').style.display = 'none';
+      document.getElementById('email-draft-overlay').classList.add('open');
+    }
+
+    // Contacted flips only when the draft is actually copied or opened in the mail client.
+    // Opening a draft and closing it is not contact, and a Yes you did not earn is worse
+    // than no tracking — you would stop chasing a tenant who never heard from you.
+    async function markKeyContactedIfPending() {
+      if (!_keyEmailDealId) return;
+      const deal = db.deals.find(d => d.id === _keyEmailDealId);
+      if (!deal || deal.keyContacted === 'Yes') return;
+      deal.keyContacted = 'Yes';
+      deal.lastUpdated = new Date().toISOString();
+      await saveRecord('deals', deal);
+      renderKeysPage();
+    }
+
+    function printOfficePickupList() {
+      const rows = keysUpcomingDeals().filter(d => d.officePickup === 'Yes');
+      if (!rows.length) { alert('No upcoming move-ins are marked Office Pick Up.'); return; }
+      const generated = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      const th = 'border:1px solid #000;padding:6px 8px;text-align:left;';
+      const td = 'border:1px solid #000;padding:6px 8px;';
+      const body = rows.map(d => {
+        const l = landlordForDeal(d);
+        return '<tr>'
+          + '<td style="border:1px solid #000;width:34px;height:36px;"></td>'
+          + '<td style="' + td + '">' + keysEsc(dealTenants(d) || '—') + '</td>'
+          + '<td style="' + td + '">' + keysEsc(resolveDealAddress(d)) + '</td>'
+          + '<td style="' + td + 'white-space:nowrap;">' + formatDate(d.leaseStart) + '</td>'
+          + '<td style="' + td + '">' + keysEsc((l && l.name) || d.landlordName || '—') + '</td>'
+          + '<td style="' + td + 'white-space:pre-wrap;">' + keysEsc((d.keyNotes || '').trim()) + '</td>'
+          + '</tr>';
+      }).join('');
+      const html = '<div style="font-family:Arial,sans-serif;padding:32px;color:#000;">'
+        + '<div style="font-size:20px;font-weight:700;margin-bottom:4px;">Office Key Pickup Checklist</div>'
+        + '<div style="font-size:12px;color:#444;margin-bottom:18px;">Generated ' + generated + '</div>'
+        + '<table style="border-collapse:collapse;width:100%;font-size:12.5px;">'
+        + '<thead><tr>'
+        + '<th style="border:1px solid #000;padding:6px 8px;width:34px;"></th>'
+        + '<th style="' + th + '">Tenant(s)</th>'
+        + '<th style="' + th + '">Address</th>'
+        + '<th style="' + th + '">Lease Start</th>'
+        + '<th style="' + th + '">Landlord</th>'
+        + '<th style="' + th + '">Notes</th>'
+        + '</tr></thead><tbody>' + body + '</tbody></table></div>';
+      // Isolated popup, same as printInvoice — @media print alone caused double-page output.
+      const w = window.open('', '_blank');
+      w.document.write('<!DOCTYPE html><html><head><title>Office Key Pickup Checklist</title></head><body style="margin:0;padding:0;">' + html + '</body></html>');
+      w.document.close();
+      w.focus();
+      w.print();
     }
 
     // ── INVOICE MODAL ───────────────────────────────────────────────────────────────
