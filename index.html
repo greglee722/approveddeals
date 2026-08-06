@@ -1162,6 +1162,25 @@
       border-color: var(--accent);
     }
 
+    .attachment-del-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1;
+      padding: 2px 5px;
+      margin-left: 2px;
+      border-radius: 4px;
+      flex-shrink: 0;
+      transition: all 0.12s;
+    }
+
+    .attachment-del-btn:hover {
+      color: var(--danger);
+      background: var(--danger-soft);
+    }
+
     /* LIGHTBOX */
     #attachment-lightbox {
       display: none;
@@ -1992,7 +2011,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v6.7</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v6.8</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -3975,18 +3994,24 @@
       </div>
 
       ${(() => {
-          const atts = (d.paymentLog || []).filter(p => p.imageUrl);
+          // Keep each entry's TRUE index in d.paymentLog — removeAttachmentFromDeal() indexes the
+          // raw array, not this filtered view (and not the date-sorted view the logs use).
+          const atts = (d.paymentLog || []).map((p, i) => ({ p, i })).filter(x => x.p.imageUrl);
           if (!atts.length) return '';
           const eyeIcon = `<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
-          const rows = atts.map(p => {
+          const rows = atts.map(({ p, i }) => {
             const label = p.type || 'Attachment';
             const sub = p.client ? `<span class="attachment-meta">${p.client}</span>` : '';
+            const del = isAdmin()
+              ? `<button class="attachment-del-btn" title="Remove attachment" onclick="removeAttachmentFromDeal('${d.id}',${i})">&#215;</button>`
+              : '';
             return `<div class="attachment-item">
             <span class="attachment-label" title="${label}">${label}</span>
             ${sub}
             <button class="attachment-view-btn" onclick="openLightbox('${p.imageUrl.replace(/'/g, "\\'")}','${label.replace(/'/g, "\\'")}')">
               ${eyeIcon} View
             </button>
+            ${del}
           </div>`;
           }).join('');
           return `<div class="detail-card">
@@ -5030,6 +5055,23 @@
       if (field) { const cur = parseFloat(deal[field] || 0); deal[field] = Math.max(0, cur - parseFloat(entry.amount || 0)).toFixed(2); }
       const origIdx = deal.paymentLog.findIndex(p => p.client === entry.client && p.type === entry.type && p.amount === entry.amount && p.date === entry.date);
       if (origIdx >= 0) deal.paymentLog.splice(origIdx, 1);
+      deal.lastUpdated = new Date().toISOString();
+      await saveRecord('deals', deal);
+      openDealDetail(dealId);
+      applyFilters(); renderStats();
+    }
+
+    // Attachments card (deal detail) — clears the image on one paymentLog entry and saves
+    // immediately. Unlike the payment modal's removeRowAttachment(), there's no Save step here.
+    // `idx` is the index into deal.paymentLog itself — NOT the date-sorted index the
+    // Payments/Paperwork Log rows use. The entry, its amount and its date are all left alone.
+    async function removeAttachmentFromDeal(dealId, idx) {
+      const deal = db.deals.find(d => d.id === dealId);
+      const entry = deal && deal.paymentLog ? deal.paymentLog[idx] : null;
+      if (!entry || !entry.imageUrl) return;
+      const what = entry.type ? `the ${entry.type} attachment` : 'this attachment';
+      if (!confirm(`Remove ${what}?\n\nThe payment entry itself stays — only the image is unlinked. The file stays in Google Drive.`)) return;
+      entry.imageUrl = '';
       deal.lastUpdated = new Date().toISOString();
       await saveRecord('deals', deal);
       openDealDetail(dealId);
