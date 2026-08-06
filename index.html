@@ -1992,7 +1992,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v6.6</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v6.7</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -3062,7 +3062,7 @@
       </div>
       <!-- PAYMENT TAB -->
       <div id="modal-tab-payment">
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 36px 36px;gap:8px;margin-bottom:8px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 96px 36px;gap:8px;margin-bottom:8px;">
           <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);">
             Client</div>
           <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);">
@@ -3086,7 +3086,7 @@
       </div>
       <!-- PAPERWORK TAB -->
       <div id="modal-tab-paperwork" style="display:none;">
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 36px 36px;gap:8px;margin-bottom:8px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 96px 36px;gap:8px;margin-bottom:8px;">
           <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);">
             Client</div>
           <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);">
@@ -4845,9 +4845,13 @@
           ? `<option value="${clients[0].name}" selected>${clients[0].name}</option>`
           : `<option value="">Select client</option>` + clients.map(c => `<option value="${c.name}"${r.client === c.name ? ' selected' : ''}>${c.name}</option>`).join('');
         const uploadBtn = r.imageUrl
-          ? `<a href="${r.imageUrl}" target="_blank" title="View uploaded image" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:36px;background:var(--success);color:#fff;border-radius:7px;text-decoration:none;font-size:13px;">✓</a>`
+          ? `<div style="display:flex;gap:4px;align-items:center;">
+        <a href="${r.imageUrl}" target="_blank" title="View attached image" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:36px;background:var(--success);color:#fff;border-radius:7px;text-decoration:none;font-size:13px;">✓</a>
+        <button onclick="triggerPaymentImageUpload(${r.id})" title="Replace attachment" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:36px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;cursor:pointer;color:var(--muted);padding:0;font-size:14px;line-height:1;" onmouseover="this.style.borderColor='#000';this.style.color='#000'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">&#8635;</button>
+        <button onclick="removeRowAttachment('payment',${r.id})" title="Remove attachment" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:36px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;cursor:pointer;color:var(--muted);padding:0;font-size:13px;line-height:1;" onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">&#10005;</button>
+      </div>`
           : `<button onclick="triggerPaymentImageUpload(${r.id})" title="Attach photo" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:36px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;cursor:pointer;color:var(--muted);padding:0;" onmouseover="this.style.borderColor='#000';this.style.color='#000'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>`;
-        return `<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 36px 36px;gap:8px;margin-bottom:8px;align-items:center;">
+        return `<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 96px 36px;gap:8px;margin-bottom:8px;align-items:center;">
       <select onchange="updatePaymentRow(${r.id},'client',this.value)" style="padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;">${clientSelectOpts}</select>
       <select onchange="updatePaymentRow(${r.id},'type',this.value)" style="padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;"><option value="">Select type</option>${typeKeys.map(t => `<option value="${t}"${r.type === t ? ' selected' : ''}>${t}</option>`).join('')}</select>
       <div style="position:relative;"><span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;pointer-events:none;">$</span>
@@ -4927,6 +4931,18 @@
       _uploadingRowId = null;
     }
 
+    // Clears the link between a row and its attachment. The file itself stays in Google Drive —
+    // we only drop the URL. Takes effect when the modal is saved, like every other row edit.
+    function removeRowAttachment(type, id) {
+      if (!confirm('Remove this attachment?\n\nThe file stays in Google Drive — it just won’t be linked to this entry anymore.')) return;
+      const row = type === 'paperwork'
+        ? paperworkRows.find(r => r.id === id)
+        : paymentRows.find(r => r.id === id);
+      if (!row) return;
+      row.imageUrl = '';
+      if (type === 'paperwork') renderPaperworkRows(); else renderPaymentRows();
+    }
+
     async function uploadFileToDrive(file) {
       const token = await getDriveToken();
 
@@ -4981,9 +4997,13 @@
           ? `<option value="${clients[0].name}">${clients[0].name}</option>`
           : `<option value="">Select client</option>` + clients.map(c => `<option value="${c.name}" ${r.client === c.name ? 'selected' : ''}>${c.name}</option>`).join('');
         const uploadBtn = r.imageUrl
-          ? `<a href="${r.imageUrl}" target="_blank" title="View uploaded image" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:36px;background:var(--success);color:#fff;border-radius:7px;text-decoration:none;font-size:13px;">✓</a>`
+          ? `<div style="display:flex;gap:4px;align-items:center;">
+        <a href="${r.imageUrl}" target="_blank" title="View attached image" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:36px;background:var(--success);color:#fff;border-radius:7px;text-decoration:none;font-size:13px;">✓</a>
+        <button onclick="triggerPaperworkImageUpload(${r.id})" title="Replace attachment" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:36px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;cursor:pointer;color:var(--muted);padding:0;font-size:14px;line-height:1;" onmouseover="this.style.borderColor='#000';this.style.color='#000'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">&#8635;</button>
+        <button onclick="removeRowAttachment('paperwork',${r.id})" title="Remove attachment" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:36px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;cursor:pointer;color:var(--muted);padding:0;font-size:13px;line-height:1;" onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">&#10005;</button>
+      </div>`
           : `<button onclick="triggerPaperworkImageUpload(${r.id})" title="Attach photo" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:36px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;cursor:pointer;color:var(--muted);padding:0;" onmouseover="this.style.borderColor='#000';this.style.color='#000'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>`;
-        return `<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 36px 36px;gap:8px;margin-bottom:8px;align-items:center;">
+        return `<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 96px 36px;gap:8px;margin-bottom:8px;align-items:center;">
       <select onchange="updatePaperworkRow(${r.id},'client',this.value)" style="padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;">${clientOpts}</select>
       <select style="padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;">
         <option>Notarized Cosigner Form</option>
@@ -5088,7 +5108,9 @@
           const newField = PAYMENT_TYPE_MAP[r.type];
           if (newField) { const cur = parseFloat(deal[newField] || 0); deal[newField] = (cur + parseFloat(r.amount)).toFixed(2); }
           // Replace in log
-          deal.paymentLog[origIdx] = { client: r.client, type: r.type, amount: parseFloat(r.amount).toFixed(2), date: entry.date || today, notes: r.notes || '', imageUrl: r.imageUrl || entry.imageUrl || '' };
+          // r.imageUrl is seeded from entry.imageUrl in editPaymentEntry(), so no fallback here —
+          // falling back to entry.imageUrl would silently restore an attachment the user removed.
+          deal.paymentLog[origIdx] = { client: r.client, type: r.type, amount: parseFloat(r.amount).toFixed(2), date: entry.date || today, notes: r.notes || '', imageUrl: r.imageUrl || '' };
         } else {
           for (const r of rows) {
             const field = PAYMENT_TYPE_MAP[r.type];
@@ -5102,7 +5124,7 @@
           if (!r.client) { alert('Please select a client for each row.'); return; }
           if (editingPaymentEntry) {
             const { origIdx, entry } = editingPaymentEntry;
-            deal.paymentLog[origIdx] = { client: r.client, type: 'Notarized Cosigner Form', cosigner: r.cosigner || '', amount: '', date: entry.date || today, notes: r.notes || '', imageUrl: r.imageUrl || entry.imageUrl || '' };
+            deal.paymentLog[origIdx] = { client: r.client, type: 'Notarized Cosigner Form', cosigner: r.cosigner || '', amount: '', date: entry.date || today, notes: r.notes || '', imageUrl: r.imageUrl || '' };
           } else {
             deal.ncfReceived = String(parseInt(deal.ncfReceived || 0) + 1);
             deal.paymentLog.push({ client: r.client, type: 'Notarized Cosigner Form', cosigner: r.cosigner || '', amount: '', date: today, notes: r.notes || '', imageUrl: r.imageUrl || '' });
