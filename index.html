@@ -2011,7 +2011,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v6.8</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v6.9</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -6593,7 +6593,7 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
         }
         const contacted = d.keyContacted === 'Yes' ? 'Yes' : 'No';
         html += `<tr>
-      <td>${keysEsc(r.addr)}</td>
+      <td><span onclick="openDealDetail('${d.id}')" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;">${keysEsc(r.addr)}</span></td>
       <td><select onchange="saveKeyField('${d.id}','keyContacted',this.value)" style="width:100%;font-size:12.5px;padding:5px 7px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-body);">
         <option value="No"${contacted === 'No' ? ' selected' : ''}>No</option>
         <option value="Yes"${contacted === 'Yes' ? ' selected' : ''}>Yes</option>
