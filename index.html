@@ -2016,7 +2016,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v7.5</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v7.6</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -6719,6 +6719,15 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
     // where Greg wanted them (2026-08-11).
     const KEY_PICKUP_OPTIONS = ['Need to Pick Up', 'In Office'];
 
+    // ⚠️ TWO different orderings live on these states and they are NOT the same list:
+    //   KEY_STATES[].rank  — severity, least→most resolved. Decides which state a MIXED group
+    //                        takes (the lowest wins).
+    //   KEY_DISPLAY_ORDER  — the order groups are listed in, within one lease start date.
+    //                        Greg's call 2026-08-11: Blue > Green > Red > Yellow > Grey, i.e.
+    //                        finished work first and the still-to-chase piles last.
+    // Sorting by `rank` would put red at the top, which is the opposite of what he asked for.
+    const KEY_DISPLAY_ORDER = { blue: 0, green: 1, red: 2, yellow: 3, grey: 4 };
+
     // Rank orders the states from least to most resolved. A group takes the LOWEST rank among
     // its addresses, so a header can never claim done while one address is outstanding.
     const KEY_STATES = {
@@ -6801,6 +6810,22 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
         if (last && last.key === key) last.rows.push(r);
         else groups.push({ key: key, rows: [r] });
       });
+      // Status is needed to order the groups, so resolve it here rather than in the render
+      // loop, and hang it on the group for that loop to reuse.
+      groups.forEach(g => {
+        const l = g.rows[0].landlord;
+        g.instr = l ? (l.moveInInstructions || '').trim() : '';
+        g.status = groupKeyStatus(g.rows, !!g.instr);
+      });
+      // Lease start still wins — an 08/15 red sits above a 09/01 blue (Greg, 2026-08-11).
+      // Status only orders groups sharing a date, so the colours block together per day
+      // rather than across the whole table.
+      groups.sort((a, b) =>
+        (a.rows[0].deal.leaseStart || '').localeCompare(b.rows[0].deal.leaseStart || '')
+        || KEY_DISPLAY_ORDER[a.status.state] - KEY_DISPLAY_ORDER[b.status.state]
+        || a.rows[0].llName.localeCompare(b.rows[0].llName));
+      // AFTER the sort — data-gi indices on the rows must match the rendered order, or
+      // toggleKeyGroup() collapses the wrong group.
       keysGroupKeys = groups.map(g => g.key);
       // A search opens what it matched, and clearing it returns to the tidy all-collapsed
       // list. Keyed off a CHANGED query, not merely a non-empty one, so Collapse All still
@@ -6816,7 +6841,7 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
         const first = g.rows[0];
         const d0 = first.deal;
         const l = first.landlord;
-        const instr = l ? (l.moveInInstructions || '').trim() : '';
+        const instr = g.instr;
         const nm = keysEsc(first.llName || '—');
         // Only clickable when a landlord record actually exists to open. stopPropagation so
         // opening the landlord doesn't also toggle the group underneath it.
@@ -6827,7 +6852,7 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
           `<span style="font-size:11px;font-weight:500;color:var(--danger);margin-left:10px;">${l ? 'No instructions yet — click to add.' : 'No landlord record on this deal.'}</span>`;
         const collapsed = !keysExpandedGroups[g.key];
         const count = g.rows.length + (g.rows.length === 1 ? ' address' : ' addresses');
-        const status = groupKeyStatus(g.rows, !!instr);
+        const status = g.status;
         const st = KEY_STATES[status.state];
         // Label is the badge ("Completed — Keys in Office"); text is the sentence, or the
         // "X of N complete" tally when the group's addresses aren't all in the same state.
