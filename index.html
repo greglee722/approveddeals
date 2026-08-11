@@ -2011,7 +2011,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v7.2</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v7.3</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -2539,10 +2539,19 @@
           </div><button class="btn btn-primary" onclick="openCheckModal()">+ Add Check</button>
         </div>
         <div class="card" style="margin-bottom:18px;">
-          <div style="padding:16px 14px 12px;">
-            <div style="font-family:var(--font-head);font-size:15px;margin-bottom:2px;">To Write</div>
-            <div style="font-size:12.5px;color:var(--muted);">Soonest lease start first. Tick Delivered once the check
-              is handed over — it moves to the table below.</div>
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:16px 14px 12px;">
+            <div>
+              <div style="font-family:var(--font-head);font-size:15px;margin-bottom:2px;">To Write</div>
+              <div style="font-size:12.5px;color:var(--muted);">Soonest lease start first. Tick Delivered once the check
+                is handed over — it moves to the table below.</div>
+            </div>
+            <!-- Both actions cover the outstanding list only — the delivered table needs no action. -->
+            <div style="display:flex;gap:8px;flex-shrink:0;">
+              <button class="btn btn-outline btn-sm" style="white-space:nowrap;" onclick="exportChecksCSV()">Export
+                CSV</button>
+              <button class="btn btn-outline btn-sm" style="white-space:nowrap;" onclick="openChecksEmailDraft()">Draft
+                Email</button>
+            </div>
           </div>
           <div style="overflow-x:auto;">
             <!-- min-width so Memo/Notes overflow into the scroller instead of being crushed -->
@@ -6531,7 +6540,9 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
       const body = document.getElementById('email-draft-body').value;
       const ccEl = document.getElementById('email-draft-cc');
       const cc = ccEl ? (ccEl.textContent || '').trim() : '';
-      const toParam = (to === '(no client emails on file)' || to === '(no cosigner emails on file)') ? '' : encodeURIComponent(to);
+      // Parenthesised placeholders are UI text, not addresses — never put them in the mailto.
+      const toParam = (to === '(no client emails on file)' || to === '(no cosigner emails on file)'
+        || to === '(add recipient when you send)') ? '' : encodeURIComponent(to);
       const ccParam = cc ? '&cc=' + encodeURIComponent(cc) : '';
       window.location.href = 'mailto:' + toParam + '?subject=' + encodeURIComponent(subject) + ccParam + '&body=' + encodeURIComponent(body);
     }
@@ -6982,17 +6993,23 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
       return isNaN(n) ? '—' : '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
+    // The outstanding list in the order the To Write table renders it. The table, the CSV
+    // export and the email draft all read this one function so they can't drift apart.
+    // Deals with no lease start sort last rather than first — an empty string would
+    // otherwise beat every real date.
+    function openChecksSorted() {
+      return allChecks().filter(x => x.check.delivered !== 'Yes').sort((a, b) =>
+        (a.deal.leaseStart || '9999-12-31').localeCompare(b.deal.leaseStart || '9999-12-31')
+        || (a.deal.name || '').localeCompare(b.deal.name || ''));
+    }
+
     function renderChecksPage() {
       const openT = document.getElementById('checks-open-tbody');
       const doneT = document.getElementById('checks-done-tbody');
       if (!openT || !doneT) return;
       const all = allChecks();
 
-      // Undelivered: soonest lease start first. Deals with no lease start sort last rather
-      // than first — an empty string would otherwise beat every real date.
-      const open = all.filter(x => x.check.delivered !== 'Yes').sort((a, b) =>
-        (a.deal.leaseStart || '9999-12-31').localeCompare(b.deal.leaseStart || '9999-12-31')
-        || (a.deal.name || '').localeCompare(b.deal.name || ''));
+      const open = openChecksSorted();
       const done = all.filter(x => x.check.delivered === 'Yes').sort((a, b) =>
         (b.check.deliveredDate || '').localeCompare(a.check.deliveredDate || ''));
 
@@ -7325,6 +7342,89 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
       await saveRecord('deals', deal);
       closeCheckModal();
       renderChecksPage();
+    }
+
+    // ── EXPORT / EMAIL ──
+    // Both cover the outstanding list only — the Delivered table needs no action taken.
+
+    function exportChecksCSV() {
+      const rows = openChecksSorted();
+      if (!rows.length) { alert('No checks to write — nothing to export.'); return; }
+      const cols = ['Lease Start', 'Deal', 'Landlord', 'Check Amount', 'Payable To', 'Memo', 'Notes'];
+      const body = rows.map(x => [
+        x.deal.leaseStart ? formatDate(x.deal.leaseStart) : '',
+        x.deal.name,
+        x.deal.landlordName,
+        // Raw number, not checkMoney() — a spreadsheet should get 2400.00, not "$2,400.00".
+        x.check.amount,
+        x.check.payableTo,
+        x.check.memo,
+        x.check.notes
+      ].map(v => `"${(v == null ? '' : v).toString().replace(/"/g, '""')}"`));
+      const csv = [cols.join(','), ...body.map(r => r.join(','))].join('\n');
+      const a = document.createElement('a');
+      a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+      a.download = 'checks_to_write_' + keysToday() + '.csv';
+      a.click();
+    }
+
+    function checksTotal(rows) {
+      return rows.reduce((sum, x) => sum + (parseFloat(x.check.amount) || 0), 0);
+    }
+
+    function buildChecksEmail(rows) {
+      const total = checkMoney(checksTotal(rows));
+      const count = rows.length + (rows.length === 1 ? ' check' : ' checks');
+      let plain = 'Checks to write as of ' + formatDate(keysToday()) + ' — ' + count + ', ' + total + ' total.\n\n';
+      rows.forEach(x => {
+        const d = x.deal, c = x.check;
+        plain += checkMoney(c.amount) + ' payable to ' + (c.payableTo || '—') + '\n';
+        plain += '  Memo: ' + (c.memo || '—') + '\n';
+        plain += '  Deal: ' + (d.name || 'Untitled Deal') + (d.leaseStart ? ' (lease starts ' + formatDate(d.leaseStart) + ')' : '') + '\n';
+        plain += '  Landlord: ' + (d.landlordName || '—') + '\n';
+        if ((c.notes || '').trim()) plain += '  Notes: ' + c.notes + '\n';
+        plain += '\n';
+      });
+
+      let html = '<p>Checks to write as of ' + keysEsc(formatDate(keysToday())) + ' — <b>' + keysEsc(count) + ', ' + keysEsc(total) + ' total</b>.</p>';
+      html += '<table cellpadding="6" cellspacing="0" border="1" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;">'
+        + '<tr style="background:#f2f2f2;"><th align="left">Lease Start</th><th align="left">Deal</th><th align="left">Landlord</th>'
+        + '<th align="left">Amount</th><th align="left">Payable To</th><th align="left">Memo</th><th align="left">Notes</th></tr>';
+      rows.forEach(x => {
+        const d = x.deal, c = x.check;
+        html += '<tr>'
+          + '<td>' + keysEsc(d.leaseStart ? formatDate(d.leaseStart) : '—') + '</td>'
+          + '<td>' + keysEsc(d.name || 'Untitled Deal') + '</td>'
+          + '<td>' + keysEsc(d.landlordName || '—') + '</td>'
+          + '<td><b>' + keysEsc(checkMoney(c.amount)) + '</b></td>'
+          + '<td>' + keysEsc(c.payableTo || '—') + '</td>'
+          + '<td>' + keysEsc(c.memo || '—') + '</td>'
+          + '<td>' + keysEsc(c.notes || '') + '</td></tr>';
+      });
+      html += '</table>';
+      return { plain: plain.trimEnd(), html: html };
+    }
+
+    function openChecksEmailDraft() {
+      const rows = openChecksSorted();
+      if (!rows.length) { alert('No checks to write — nothing to draft.'); return; }
+      // ⚠️ This draft belongs to no single deal. Both ids MUST be nulled: the shared modal's
+      // Copy / Open-in-Mail buttons call markKeyContactedIfPending(), which would otherwise
+      // flip keyContacted on whichever deal was last drafted from the Key Instructions tab.
+      _emailDraftDealId = null;
+      _keyEmailDealId = null;
+      setEmailDraftTitle('Checks to Write Draft');
+      document.getElementById('email-draft-warn-row').style.display = 'none';
+      document.getElementById('email-draft-cosigner-row').style.display = 'none';
+      document.getElementById('email-draft-cc-row').style.display = 'none';
+      // Left for Greg to fill in at send time — openEmailInMailClient() treats this
+      // parenthesised placeholder as "no recipient" and omits it from the mailto.
+      document.getElementById('email-draft-to').textContent = '(add recipient when you send)';
+      document.getElementById('email-draft-subject').textContent = 'Checks to Write — ' + formatDate(keysToday());
+      const content = buildChecksEmail(rows);
+      document.getElementById('email-draft-body').value = content.plain;
+      _emailDraftBodyHtml = content.html;
+      document.getElementById('email-draft-overlay').classList.add('open');
     }
 
     // ── INVOICE MODAL ───────────────────────────────────────────────────────────────
