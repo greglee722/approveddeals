@@ -2011,7 +2011,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v7.0</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v7.1</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -2019,8 +2019,9 @@
           Paperwork</button>
         <button class="nav-tab alert-tab" data-page="delivery" onclick="showPage('delivery',this)">Delivery
           Needed</button>
-        <button class="nav-tab" data-page="clients" onclick="showPage('clients',this)">Clients</button>
-        <button class="nav-tab" data-page="addresses" onclick="showPage('addresses',this)">Addresses</button>
+        <button class="nav-tab" id="nav-checks" data-page="checks" onclick="showPage('checks',this)"
+          style="display:none;position:relative;">Checks to Write<span id="checks-badge"
+            style="display:none;position:absolute;top:-4px;right:-2px;background:#c0392b;color:#fff;border-radius:10px;padding:1px 5px;font-size:10px;font-weight:600;line-height:1.4;"></span></button>
         <button class="nav-tab" data-page="keys" onclick="showPage('keys',this)">Key Instructions</button>
         <!-- HAMBURGER -->
         <div style="position:relative;">
@@ -2038,6 +2039,24 @@
           </button>
           <div id="hamburger-menu"
             style="display:none;position:absolute;top:calc(100% + 8px);right:0;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);min-width:180px;z-index:200;padding:6px 0;animation:modalIn 0.15s ease;">
+            <button class="hamburger-item" data-page="clients"
+              onclick="showPage('clients',document.querySelector('[data-page=clients]'));toggleHamburger()">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+              Clients
+            </button>
+            <button class="hamburger-item" data-page="addresses"
+              onclick="showPage('addresses',document.querySelector('[data-page=addresses]'));toggleHamburger()">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+              Addresses
+            </button>
             <button class="hamburger-item" data-page="landlords"
               onclick="showPage('landlords',document.querySelector('[data-page=landlords]'));toggleHamburger()">
               <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -2507,6 +2526,67 @@
                 </tr>
               </thead>
               <tbody id="keys-deals-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="page" id="page-checks">
+        <div class="page-hdr">
+          <div>
+            <div class="page-title">Checks to Write</div>
+            <div class="page-subtitle">Checks we owe on a client's behalf, from money collected directly by us</div>
+          </div><button class="btn btn-primary" onclick="openCheckModal()">+ Add Check</button>
+        </div>
+        <div class="card" style="margin-bottom:18px;">
+          <div style="padding:16px 14px 12px;">
+            <div style="font-family:var(--font-head);font-size:15px;margin-bottom:2px;">To Write</div>
+            <div style="font-size:12.5px;color:var(--muted);">Soonest lease start first. Tick Delivered once the check
+              is handed over — it moves to the table below.</div>
+          </div>
+          <div style="overflow-x:auto;">
+            <!-- min-width so Memo/Notes overflow into the scroller instead of being crushed -->
+            <table style="min-width:1040px;">
+              <thead>
+                <tr>
+                  <th style="width:100px;">Lease Start</th>
+                  <th style="width:170px;">Deal</th>
+                  <th style="width:150px;">Landlord</th>
+                  <th style="width:100px;">Amount</th>
+                  <th style="width:150px;">Payable To</th>
+                  <th style="width:150px;">Memo</th>
+                  <th>Notes</th>
+                  <th style="width:80px;">Delivered?</th>
+                  <th style="width:110px;"></th>
+                </tr>
+              </thead>
+              <tbody id="checks-open-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div style="padding:16px 14px 12px;">
+            <div style="font-family:var(--font-head);font-size:15px;margin-bottom:2px;">Delivered</div>
+            <div style="font-size:12.5px;color:var(--muted);">Most recently delivered first. Untick to move a check back
+              to the list above.</div>
+          </div>
+          <div style="overflow-x:auto;">
+            <table style="min-width:1040px;">
+              <thead>
+                <tr>
+                  <th style="width:100px;">Delivered On</th>
+                  <th style="width:100px;">Lease Start</th>
+                  <th style="width:170px;">Deal</th>
+                  <th style="width:150px;">Landlord</th>
+                  <th style="width:100px;">Amount</th>
+                  <th style="width:150px;">Payable To</th>
+                  <th style="width:150px;">Memo</th>
+                  <th>Notes</th>
+                  <th style="width:80px;">Delivered?</th>
+                  <th style="width:110px;"></th>
+                </tr>
+              </thead>
+              <tbody id="checks-done-tbody"></tbody>
             </table>
           </div>
         </div>
@@ -2993,6 +3073,30 @@
       <div id="obj-modal-fields" style="flex:1;min-height:0;overflow-y:auto;"></div>
       <div class="mini-footer" style="flex-shrink:0;"><button class="btn btn-ghost" onclick="closeObjModal()">Cancel</button><button
           class="btn btn-primary" onclick="saveObjModal()">Save</button></div>
+    </div>
+  </div>
+
+  <div class="mini-overlay" id="check-overlay" onclick="if(event.target===this)closeCheckModal()">
+    <div class="mini-modal" style="width:560px;max-height:90vh;display:flex;flex-direction:column;">
+      <div class="mini-title" id="check-modal-title" style="flex-shrink:0;">Add Check</div>
+      <div style="flex:1;min-height:0;overflow-y:auto;">
+        <div class="form-2col">
+          <div class="form-group full"><label>Deal</label><select id="cf-deal"
+              onchange="onCheckDealPicked()"></select></div>
+          <div class="form-group"><label>Check Amount ($)</label>
+            <div class="currency-wrap"><input type="number" id="cf-amount" step="0.01" placeholder="0.00"></div>
+          </div>
+          <div class="form-group"><label>Payable To</label><input type="text" id="cf-payable"
+              placeholder="Landlord or management company"></div>
+          <div class="form-group full"><label>Memo</label><input type="text" id="cf-memo"
+              placeholder="What the check is for — e.g. Security deposit, 12 Comm Ave #3"></div>
+          <div class="form-group full"><label>Notes</label><textarea id="cf-notes"
+              placeholder="Anything else worth knowing before this gets dropped off"></textarea></div>
+        </div>
+      </div>
+      <div class="mini-footer" style="flex-shrink:0;"><button class="btn btn-ghost"
+          onclick="closeCheckModal()">Cancel</button><button class="btn btn-primary"
+          onclick="saveCheckModal()">Save</button></div>
     </div>
   </div>
 
@@ -3640,6 +3744,7 @@
       if (p === 'landlords') renderObjTable('landlord');
       if (p === 'agents') renderObjTable('agent');
       if (p === 'keys') renderKeysPage();
+      if (p === 'checks') renderChecksPage();
       if (p === 'archived') renderArchivedTable();
       if (p === 'drafts') renderDraftsTable();
       if (p === 'requests') renderRequestsTable();
@@ -3723,6 +3828,9 @@
       if (duesoonEl) { duesoonEl.textContent = dueSoonCount; duesoonEl.className = 'stat-val' + (dueSoonCount > 0 ? ' warn' : ''); }
       if (overdueEl) { overdueEl.textContent = overdueCount; overdueEl.className = 'stat-val' + (overdueCount > 0 ? ' warn' : ''); }
       document.getElementById('stat-broker').textContent = live.filter(hasMissingBrokerFee).length;
+      // Archiving or restoring a deal changes the open-check count without touching the
+      // Checks page. renderStats() runs after all of those, so the badge rides along.
+      updateChecksBadge();
     }
 
     function toggleStatFilter(type) {
@@ -4244,6 +4352,10 @@
         commission: gv('df-commission'), additionalInfo: gv('df-additional-info'),
         clients: [...selectedClients], cosigners: [...tempCosigners],
         paymentLog: editingDealId ? (db.deals.find(x => x.id === editingDealId) || {}).paymentLog || [] : [],
+        // ⚠️ `deal` is rebuilt from scratch on every save and the deal form has no check
+        // fields, so `checks` MUST be carried forward here or editing any deal wipes every
+        // check on it. Same trap as landlords' moveInInstructions.
+        checks: editingDealId ? (db.deals.find(x => x.id === editingDealId) || {}).checks || [] : [],
         appfeeNeeded: gv('df-appfee-needed'), appfeeReceived: gv('df-appfee-received'), appfeeDue: gv('df-appfee-due'), appfeeNotes: gv('df-appfee-notes'),
         fmrNeeded: gv('df-fmr-needed'), fmrReceived: gv('df-fmr-received'), fmrDue: gv('df-fmr-due'), fmrNotes: gv('df-fmr-notes'), fmrDelivered: gv('df-fmr-delivered'),
         brokerNeeded: gv('df-broker-needed'), brokerReceived: gv('df-broker-received'), brokerDue: gv('df-broker-due'), brokerNotes: gv('df-broker-notes'),
@@ -5406,10 +5518,15 @@
       if (isAdmin()) {
         // Show all tabs including Edit Requests
         document.getElementById('nav-requests').style.display = '';
+        // Writing checks is an office function. Agents are also RLS-limited to their own
+        // deals, so their count would be a partial number presented as a total.
+        document.getElementById('nav-checks').style.display = '';
         updateRequestsBadge();
+        updateChecksBadge();
       } else {
         // Agent: hide admin-only tabs
         document.getElementById('nav-requests').style.display = 'none';
+        document.getElementById('nav-checks').style.display = 'none';
         // Hide + New Deal button — agents can add deals
         // Filter deals to only their own
         db.deals = db.deals.filter(d =>
@@ -6831,6 +6948,187 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
       w.document.close();
       w.focus();
       w.print();
+    }
+
+    // ══════════════════════════════════════
+    // CHECKS TO WRITE
+    // ══════════════════════════════════════
+    // Money sometimes lands with us instead of the landlord, so we owe a check on the
+    // client's behalf. Each one lives in `deals.checks` (JSONB), same shape-on-the-deal
+    // pattern as paymentLog:
+    //   { id, amount, payableTo, memo, notes, delivered, deliveredDate }
+    // ⚠️ Every entry carries its OWN id and all lookups go through it — never an array
+    // index. The rendered tables are filtered and re-sorted, so a row's position has no
+    // relationship to its index in `deal.checks`. The v6.8 Attachments bug was exactly this.
+
+    // Archived is used as "delete" around here, so archived deals drop off the page and out
+    // of the badge. Keep this filter and the deal picker's in sync — a check created against
+    // a deal that isn't listed here would vanish the moment it was saved.
+    function checksVisibleDeals() {
+      return (db.deals || []).filter(d => d.status !== 'archived');
+    }
+
+    // Flattened {deal, check} pairs — the tables need the deal for every column but the
+    // amount, and the check can't be found again without knowing which deal it came from.
+    function allChecks() {
+      const out = [];
+      checksVisibleDeals().forEach(d => (d.checks || []).forEach(c => out.push({ deal: d, check: c })));
+      return out;
+    }
+
+    function checkMoney(v) {
+      const n = parseFloat(v);
+      return isNaN(n) ? '—' : '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function renderChecksPage() {
+      const openT = document.getElementById('checks-open-tbody');
+      const doneT = document.getElementById('checks-done-tbody');
+      if (!openT || !doneT) return;
+      const all = allChecks();
+
+      // Undelivered: soonest lease start first. Deals with no lease start sort last rather
+      // than first — an empty string would otherwise beat every real date.
+      const open = all.filter(x => x.check.delivered !== 'Yes').sort((a, b) =>
+        (a.deal.leaseStart || '9999-12-31').localeCompare(b.deal.leaseStart || '9999-12-31')
+        || (a.deal.name || '').localeCompare(b.deal.name || ''));
+      const done = all.filter(x => x.check.delivered === 'Yes').sort((a, b) =>
+        (b.check.deliveredDate || '').localeCompare(a.check.deliveredDate || ''));
+
+      openT.innerHTML = open.length ? open.map(x => checkRow(x, false)).join('')
+        : `<tr class="empty-row"><td colspan="9">No checks to write.</td></tr>`;
+      doneT.innerHTML = done.length ? done.map(x => checkRow(x, true)).join('')
+        : `<tr class="empty-row"><td colspan="10">No delivered checks yet.</td></tr>`;
+      updateChecksBadge();
+    }
+
+    function checkRow(x, isDone) {
+      const d = x.deal, c = x.check;
+      const deliveredCell = isDone
+        ? `<td style="font-size:12.5px;">${c.deliveredDate ? formatDate(c.deliveredDate) : '—'}</td>` : '';
+      return `<tr>${deliveredCell}
+      <td style="font-size:12.5px;">${d.leaseStart ? formatDate(d.leaseStart) : '—'}</td>
+      <td style="font-weight:500;"><span onclick="openDealDetail('${d.id}')" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;">${keysEsc(d.name || 'Untitled Deal')}</span></td>
+      <td style="font-size:12.5px;">${keysEsc(d.landlordName || '—')}</td>
+      <td style="font-weight:600;">${checkMoney(c.amount)}</td>
+      <td style="font-size:12.5px;">${keysEsc(c.payableTo || '—')}</td>
+      <td style="font-size:12.5px;">${keysEsc(c.memo || '—')}</td>
+      <td style="font-size:12.5px;white-space:pre-wrap;">${keysEsc(c.notes || '—')}</td>
+      <td style="text-align:center;"><input type="checkbox" ${c.delivered === 'Yes' ? 'checked' : ''} onchange="toggleCheckDelivered('${d.id}','${c.id}',this.checked)" style="width:16px;height:16px;cursor:pointer;"></td>
+      <td style="white-space:nowrap;"><button class="btn btn-ghost btn-xs" onclick="openCheckModal('${d.id}','${c.id}')">Edit</button><button class="btn btn-ghost btn-xs" style="color:var(--danger);" onclick="deleteCheck('${d.id}','${c.id}')">Delete</button></td></tr>`;
+    }
+
+    function findCheck(dealId, checkId) {
+      const deal = (db.deals || []).find(d => d.id === dealId);
+      const check = deal ? (deal.checks || []).find(c => c.id === checkId) : null;
+      return { deal: deal, check: check };
+    }
+
+    async function toggleCheckDelivered(dealId, checkId, on) {
+      const { deal, check } = findCheck(dealId, checkId);
+      if (!deal || !check) return;
+      check.delivered = on ? 'Yes' : '';
+      // keysToday() is local-calendar, not toISOString() — the UTC version stamps tomorrow
+      // for anything marked delivered after 8pm EDT.
+      check.deliveredDate = on ? keysToday() : '';
+      deal.lastUpdated = new Date().toISOString();
+      await saveRecord('deals', deal);
+      renderChecksPage();
+    }
+
+    async function deleteCheck(dealId, checkId) {
+      const { deal, check } = findCheck(dealId, checkId);
+      if (!deal || !check) return;
+      if (!confirm(`Delete this ${checkMoney(check.amount)} check${check.payableTo ? ' payable to ' + check.payableTo : ''}?\n\nThis can't be undone.`)) return;
+      deal.checks = (deal.checks || []).filter(c => c.id !== checkId);
+      deal.lastUpdated = new Date().toISOString();
+      await saveRecord('deals', deal);
+      renderChecksPage();
+    }
+
+    function updateChecksBadge() {
+      const badge = document.getElementById('checks-badge');
+      if (!badge) return;
+      // Counts CHECKS, not deals — one deal can owe two of them.
+      const n = allChecks().filter(x => x.check.delivered !== 'Yes').length;
+      badge.textContent = n;
+      badge.style.display = n > 0 ? 'inline' : 'none';
+    }
+
+    // ── ADD / EDIT CHECK MODAL ──
+    // {dealId, checkId} while editing, null while adding.
+    let _editingCheck = null;
+
+    function openCheckModal(dealId, checkId) {
+      const sel = document.getElementById('cf-deal');
+      const deals = checksVisibleDeals().slice().sort((a, b) =>
+        (a.leaseStart || '9999-12-31').localeCompare(b.leaseStart || '9999-12-31')
+        || (a.name || '').localeCompare(b.name || ''));
+      sel.innerHTML = '<option value="">— Select a deal —</option>' + deals.map(d => {
+        const label = (d.name || 'Untitled Deal') + ' · ' + resolveDealAddress(d) + (d.leaseStart ? ' · ' + formatDate(d.leaseStart) : '');
+        return `<option value="${d.id}">${keysEsc(label)}</option>`;
+      }).join('');
+
+      const found = dealId && checkId ? findCheck(dealId, checkId) : { deal: null, check: null };
+      const c = found.check;
+      _editingCheck = c ? { dealId: dealId, checkId: checkId } : null;
+      document.getElementById('check-modal-title').textContent = c ? 'Edit Check' : 'Add Check';
+      sel.value = c ? dealId : '';
+      // Reassigning a check to a different deal isn't a real workflow — delete and re-add.
+      sel.disabled = !!c;
+      document.getElementById('cf-amount').value = c ? (c.amount || '') : '';
+      document.getElementById('cf-payable').value = c ? (c.payableTo || '') : '';
+      document.getElementById('cf-memo').value = c ? (c.memo || '') : '';
+      document.getElementById('cf-notes').value = c ? (c.notes || '') : '';
+      document.getElementById('check-overlay').classList.add('open');
+    }
+
+    function closeCheckModal() {
+      document.getElementById('check-overlay').classList.remove('open');
+      _editingCheck = null;
+    }
+
+    // Picking a deal seeds Payable To with its landlord — only when the field is still
+    // blank, so it never overwrites something already typed.
+    function onCheckDealPicked() {
+      const payable = document.getElementById('cf-payable');
+      if (payable.value.trim()) return;
+      const deal = (db.deals || []).find(d => d.id === document.getElementById('cf-deal').value);
+      if (deal && deal.landlordName) payable.value = deal.landlordName;
+    }
+
+    async function saveCheckModal() {
+      const dealId = document.getElementById('cf-deal').value;
+      const deal = (db.deals || []).find(d => d.id === dealId);
+      if (!deal) { alert('Pick the deal this check belongs to.'); return; }
+      // An <input type="number"> reports '' for anything it can't parse, so "abc" and an
+      // empty box are indistinguishable here — one message covers both. A check with no
+      // amount on it isn't something anyone can go write, so it's required.
+      const amount = parseFloat(document.getElementById('cf-amount').value.trim());
+      if (isNaN(amount) || amount <= 0) { alert('Enter a check amount greater than zero.'); return; }
+      const fields = {
+        amount: amount.toFixed(2),
+        payableTo: document.getElementById('cf-payable').value.trim(),
+        memo: document.getElementById('cf-memo').value.trim(),
+        notes: document.getElementById('cf-notes').value.trim()
+      };
+      if (!deal.checks) deal.checks = [];
+      if (_editingCheck) {
+        const c = deal.checks.find(x => x.id === _editingCheck.checkId);
+        if (!c) { alert('That check no longer exists.'); closeCheckModal(); renderChecksPage(); return; }
+        // delivered / deliveredDate belong to the checkbox, not this form — assigning the
+        // whole object here would silently un-deliver a check on every edit.
+        Object.assign(c, fields);
+      } else {
+        deal.checks.push(Object.assign({
+          id: 'chk_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+          delivered: '', deliveredDate: ''
+        }, fields));
+      }
+      deal.lastUpdated = new Date().toISOString();
+      await saveRecord('deals', deal);
+      closeCheckModal();
+      renderChecksPage();
     }
 
     // ── INVOICE MODAL ───────────────────────────────────────────────────────────────
