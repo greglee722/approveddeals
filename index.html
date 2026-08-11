@@ -2011,7 +2011,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v6.9</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v7.0</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -2454,6 +2454,14 @@
             <div class="page-title">Key/Move-in Instructions</div>
           </div>
         </div>
+        <div class="obj-toolbar">
+          <div class="search-wrap"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"
+              viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.35-4.35" />
+            </svg><input class="search-input" id="keys-search" style="width:300px;"
+              placeholder="Search address, company, or tenant..." oninput="renderKeysPage()"></div>
+        </div>
         <div class="card" style="margin-bottom:18px;">
           <!-- .card has padding:0 — headers need their own inset to line up with the 14px cell padding -->
           <div style="padding:16px 14px 12px;">
@@ -2479,8 +2487,12 @@
               <div style="font-family:var(--font-head);font-size:15px;margin-bottom:2px;">Upcoming Move-Ins</div>
               <div style="font-size:12.5px;color:var(--muted);">Move-ins from today onward, grouped by date and landlord. Past move-ins drop off automatically.</div>
             </div>
-            <button class="btn btn-outline btn-sm" style="flex-shrink:0;white-space:nowrap;"
-              onclick="printOfficePickupList()">Print Office Pickup List</button>
+            <div style="display:flex;gap:8px;flex-shrink:0;">
+              <button class="btn btn-outline btn-sm" id="keys-toggle-all" style="white-space:nowrap;"
+                onclick="toggleAllKeyGroups()">Expand All</button>
+              <button class="btn btn-outline btn-sm" style="white-space:nowrap;"
+                onclick="printOfficePickupList()">Print Office Pickup List</button>
+            </div>
           </div>
           <div style="overflow-x:auto;">
             <!-- min-width so narrow viewports scroll instead of crushing Notes to one character wide -->
@@ -6554,45 +6566,80 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
       return (deal.clients || []).map(c => c.name).filter(Boolean).join(', ');
     }
 
+    // Groups are COLLAPSED by default, so this tracks the ones explicitly opened — keyed by
+    // the group key (leaseStart|landlord) rather than by index so the state survives a
+    // re-render that reorders or filters the list.
+    let keysExpandedGroups = {};
+    // Group keys in render order — the bridge from a row's data-gi index back to its key.
+    let keysGroupKeys = [];
+    let keysLastQuery = '';
+
     function renderKeysPage() {
       const lTbody = document.getElementById('keys-landlords-tbody');
       const dTbody = document.getElementById('keys-deals-tbody');
       if (!lTbody || !dTbody) return;
 
+      const searchEl = document.getElementById('keys-search');
+      const q = (searchEl ? searchEl.value : '').trim().toLowerCase();
+      const hit = s => !q || (s || '').toLowerCase().includes(q);
+
       const withInstr = (db.landlords || [])
         .filter(l => (l.moveInInstructions || '').trim())
+        .filter(l => hit(l.name))
         .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
       lTbody.innerHTML = withInstr.length
         ? withInstr.map(l => `<tr>
       <td style="font-weight:500;"><span onclick="openLandlordPopup('${l.id}','')" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;">${keysEsc(l.name || '—')}</span></td>
       <td style="white-space:pre-wrap;font-size:12.5px;">${keysEsc(l.moveInInstructions)}</td>
       <td><button class="btn btn-ghost btn-xs" onclick="openObjModal('landlord',false,'${l.id}')">Edit</button></td></tr>`).join('')
-        : `<tr class="empty-row"><td colspan="3">No key/move-in instructions on file yet. Add them on a landlord record.</td></tr>`;
+        : `<tr class="empty-row"><td colspan="3">${q ? 'No management companies match “' + keysEsc(q) + '”.' : 'No key/move-in instructions on file yet. Add them on a landlord record.'}</td></tr>`;
 
-      const deals = keysUpcomingDeals();
+      // A move-in matches on its address, its management company, or any tenant name.
+      const deals = keysUpcomingDeals()
+        .filter(r => !q || hit(r.addr) || hit(r.llName) || hit(dealTenants(r.deal)));
+
       // Grouped by lease start + landlord. Date and landlord live in the group header, so
-      // the rows carry only what varies within a group.
-      let html = '';
-      let groupKey = null;
+      // the rows carry only what varies within a group. keysUpcomingDeals() already sorts
+      // by that key, so a run of equal keys is one group.
+      const groups = [];
       deals.forEach(r => {
-        const d = r.deal;
-        const key = d.leaseStart + '|' + r.llName.toLowerCase();
-        if (key !== groupKey) {
-          groupKey = key;
-          const l = r.landlord;
-          const instr = l ? (l.moveInInstructions || '').trim() : '';
-          const nm = keysEsc(r.llName || '—');
-          // Only clickable when a landlord record actually exists to open.
-          const nameEl = l
-            ? `<span onclick="openLandlordPopup('${l.id}','')" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;">${nm}</span>`
-            : nm;
-          const warn = instr ? '' :
-            `<span style="font-size:11px;font-weight:500;color:var(--warning);margin-left:10px;">${l ? 'No instructions yet — click to add.' : 'No landlord record on this deal.'}</span>`;
-          html += `<tr><td colspan="5" style="${instr ? 'background:var(--surface2);' : 'background:var(--warning-soft);'}padding:9px 14px;font-size:13px;font-weight:600;border-top:1px solid var(--border);">
-        <span style="color:var(--muted);font-weight:500;">${formatDate(d.leaseStart)}</span> &nbsp;·&nbsp; ${nameEl}${warn}</td></tr>`;
-        }
-        const contacted = d.keyContacted === 'Yes' ? 'Yes' : 'No';
-        html += `<tr>
+        const key = r.deal.leaseStart + '|' + r.llName.toLowerCase();
+        const last = groups[groups.length - 1];
+        if (last && last.key === key) last.rows.push(r);
+        else groups.push({ key: key, rows: [r] });
+      });
+      keysGroupKeys = groups.map(g => g.key);
+      // A search opens what it matched, and clearing it returns to the tidy all-collapsed
+      // list. Keyed off a CHANGED query, not merely a non-empty one, so Collapse All still
+      // works while a search is active.
+      if (q !== keysLastQuery) {
+        if (q) keysGroupKeys.forEach(k => { keysExpandedGroups[k] = true; });
+        else keysExpandedGroups = {};
+      }
+      keysLastQuery = q;
+
+      let html = '';
+      groups.forEach((g, gi) => {
+        const first = g.rows[0];
+        const d0 = first.deal;
+        const l = first.landlord;
+        const instr = l ? (l.moveInInstructions || '').trim() : '';
+        const nm = keysEsc(first.llName || '—');
+        // Only clickable when a landlord record actually exists to open. stopPropagation so
+        // opening the landlord doesn't also toggle the group underneath it.
+        const nameEl = l
+          ? `<span onclick="event.stopPropagation();openLandlordPopup('${l.id}','')" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;">${nm}</span>`
+          : nm;
+        const warn = instr ? '' :
+          `<span style="font-size:11px;font-weight:500;color:var(--warning);margin-left:10px;">${l ? 'No instructions yet — click to add.' : 'No landlord record on this deal.'}</span>`;
+        const collapsed = !keysExpandedGroups[g.key];
+        const count = g.rows.length + (g.rows.length === 1 ? ' address' : ' addresses');
+        html += `<tr onclick="toggleKeyGroup(${gi})" style="cursor:pointer;"><td colspan="5" style="${instr ? 'background:var(--surface2);' : 'background:var(--warning-soft);'}padding:9px 14px;font-size:13px;font-weight:600;border-top:1px solid var(--border);">
+        <span id="keys-caret-${gi}" style="display:inline-block;width:13px;color:var(--muted);font-size:10px;">${collapsed ? '▶' : '▼'}</span><span style="color:var(--muted);font-weight:500;">${formatDate(d0.leaseStart)}</span> &nbsp;·&nbsp; ${nameEl}${warn}<span style="font-size:11px;font-weight:400;color:var(--muted);margin-left:10px;">${count}</span></td></tr>`;
+        g.rows.forEach(r => {
+          const d = r.deal;
+          const contacted = d.keyContacted === 'Yes' ? 'Yes' : 'No';
+          html += `<tr class="keys-deal-row" data-gi="${gi}"${collapsed ? ' style="display:none;"' : ''}>
       <td><span onclick="openDealDetail('${d.id}')" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;">${keysEsc(r.addr)}</span></td>
       <td><select onchange="saveKeyField('${d.id}','keyContacted',this.value)" style="width:100%;font-size:12.5px;padding:5px 7px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-body);">
         <option value="No"${contacted === 'No' ? ' selected' : ''}>No</option>
@@ -6601,8 +6648,38 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
       <td><textarea onchange="saveKeyField('${d.id}','keyNotes',this.value)" placeholder="Unique circumstances for this deal…" style="width:100%;height:52px;font-size:12.5px;padding:6px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-body);resize:vertical;box-sizing:border-box;">${keysEsc(d.keyNotes || '')}</textarea></td>
       <td style="text-align:center;"><input type="checkbox" ${d.officePickup === 'Yes' ? 'checked' : ''} onchange="saveKeyField('${d.id}','officePickup',this.checked ? 'Yes' : '')" style="width:16px;height:16px;cursor:pointer;"></td>
       <td><button class="btn btn-ghost btn-xs" onclick="openKeyInstructionsDraftModal('${d.id}')">Generate Email</button></td></tr>`;
+        });
       });
-      dTbody.innerHTML = html || `<tr class="empty-row"><td colspan="5">No upcoming move-ins.</td></tr>`;
+      dTbody.innerHTML = html || `<tr class="empty-row"><td colspan="5">${q ? 'No upcoming move-ins match “' + keysEsc(q) + '”.' : 'No upcoming move-ins.'}</td></tr>`;
+      updateKeysToggleAllLabel();
+    }
+
+    // One group's rows are shown/hidden in place rather than by re-rendering, so an
+    // in-progress edit in a Notes textarea elsewhere in the table survives the click.
+    function toggleKeyGroup(gi) {
+      const key = keysGroupKeys[gi];
+      if (!key) return;
+      const expand = !keysExpandedGroups[key];
+      if (expand) keysExpandedGroups[key] = true; else delete keysExpandedGroups[key];
+      document.querySelectorAll('#keys-deals-tbody tr.keys-deal-row[data-gi="' + gi + '"]')
+        .forEach(tr => { tr.style.display = expand ? '' : 'none'; });
+      const caret = document.getElementById('keys-caret-' + gi);
+      if (caret) caret.textContent = expand ? '▼' : '▶';
+      updateKeysToggleAllLabel();
+    }
+
+    function toggleAllKeyGroups() {
+      const expandAll = !keysGroupKeys.every(k => keysExpandedGroups[k]);
+      keysExpandedGroups = {};
+      if (expandAll) keysGroupKeys.forEach(k => { keysExpandedGroups[k] = true; });
+      renderKeysPage();
+    }
+
+    function updateKeysToggleAllLabel() {
+      const btn = document.getElementById('keys-toggle-all');
+      if (!btn) return;
+      const allExpanded = keysGroupKeys.length > 0 && keysGroupKeys.every(k => keysExpandedGroups[k]);
+      btn.textContent = allExpanded ? 'Collapse All' : 'Expand All';
     }
 
     async function saveKeyField(dealId, field, value) {
