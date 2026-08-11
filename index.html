@@ -34,6 +34,11 @@
       --success-soft: #dcfce7;
       --warning: #ca8a04;
       --warning-soft: #fef9c3;
+      /* v7.5: the "landlord handles keys" state on the Key Instructions tab. The palette had
+         no blue that wasn't --accent (a UI colour), and reusing --accent for a status would
+         make a completed row look like a selected one. */
+      --info: #2563eb;
+      --info-soft: #dbeafe;
       --radius: 12px;
       --radius-sm: 8px;
       --shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
@@ -2011,7 +2016,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v7.4</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v7.5</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -2483,24 +2488,6 @@
         </div>
         <div class="card" style="margin-bottom:18px;">
           <!-- .card has padding:0 — headers need their own inset to line up with the 14px cell padding -->
-          <div style="padding:16px 14px 12px;">
-            <div style="font-family:var(--font-head);font-size:15px;margin-bottom:2px;">Management Company Instructions</div>
-            <div style="font-size:12.5px;color:var(--muted);">Landlords with key/move-in instructions on file. Add or change instructions on the landlord record.</div>
-          </div>
-          <div style="overflow-x:auto;">
-            <table>
-              <thead>
-                <tr>
-                  <th style="width:220px;">Landlord</th>
-                  <th>Key/Move-in Instructions</th>
-                  <th style="width:70px;"></th>
-                </tr>
-              </thead>
-              <tbody id="keys-landlords-tbody"></tbody>
-            </table>
-          </div>
-        </div>
-        <div class="card">
           <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:16px 14px 12px;">
             <div>
               <div style="font-family:var(--font-head);font-size:15px;margin-bottom:2px;">Upcoming Move-Ins</div>
@@ -2515,17 +2502,41 @@
           </div>
           <div style="overflow-x:auto;">
             <!-- min-width so narrow viewports scroll instead of crushing Notes to one character wide -->
-            <table style="min-width:820px;">
+            <table style="min-width:900px;">
               <thead>
                 <tr>
                   <th>Address</th>
                   <th style="width:110px;">Contacted?</th>
-                  <th style="width:260px;">Notes</th>
-                  <th style="width:100px;">Office Pick Up</th>
+                  <th style="width:240px;">Notes</th>
+                  <th style="width:170px;">Office Pick Up</th>
                   <th style="width:120px;"></th>
                 </tr>
               </thead>
               <tbody id="keys-deals-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:16px 14px 12px;">
+            <div>
+              <div style="font-family:var(--font-head);font-size:15px;margin-bottom:2px;">Management Company Instructions</div>
+              <div style="font-size:12.5px;color:var(--muted);">Landlords with key/move-in instructions on file. Add or change instructions on the landlord record.</div>
+            </div>
+            <button class="btn btn-outline btn-sm" id="keys-landlords-toggle" style="flex-shrink:0;white-space:nowrap;"
+              onclick="toggleLandlordsTable()">Collapse</button>
+          </div>
+          <!-- Wrapper, not the <table> itself — hiding a table element collapses its layout box
+               and the horizontal scroller along with it. -->
+          <div style="overflow-x:auto;" id="keys-landlords-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:220px;">Landlord</th>
+                  <th>Key/Move-in Instructions</th>
+                  <th style="width:70px;"></th>
+                </tr>
+              </thead>
+              <tbody id="keys-landlords-tbody"></tbody>
             </table>
           </div>
         </div>
@@ -6695,6 +6706,59 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
       return (deal.clients || []).map(c => c.name).filter(Boolean).join(', ');
     }
 
+    // ── Move-in completion state (v7.5) ──
+    //
+    // `deals.officePickup` carries BOTH the checkbox and its sub-status, so this needed no
+    // schema change:
+    //   ''               unchecked — the landlord hands over keys
+    //   'Yes'            checked, sub-status not chosen yet  ← every pre-v7.5 row holds this
+    //   'Need to Pick Up'
+    //   'In Office'
+    // The checkbox is "any non-empty value". 'Yes' surviving as the not-yet-answered state is
+    // deliberate: existing rows land in grey and prompt for the dropdown, which is exactly
+    // where Greg wanted them (2026-08-11).
+    const KEY_PICKUP_OPTIONS = ['Need to Pick Up', 'In Office'];
+
+    // Rank orders the states from least to most resolved. A group takes the LOWEST rank among
+    // its addresses, so a header can never claim done while one address is outstanding.
+    const KEY_STATES = {
+      // No badge: the existing "No instructions yet — click to add" warning already says it,
+      // and it's the more actionable of the two.
+      red: { rank: -1, label: '', bg: 'var(--danger-soft)', fg: 'var(--danger)', msg: '' },
+      grey: { rank: 0, label: '', bg: 'var(--surface2)', fg: 'var(--muted)', msg: '' },
+      yellow: { rank: 1, label: 'Completed — Need to get keys', bg: 'var(--warning-soft)', fg: '#7a5c00', msg: 'Complete. Tenants emailed instructions and we need to get keys.' },
+      blue: { rank: 2, label: 'Completed', bg: 'var(--info-soft)', fg: 'var(--info)', msg: 'Complete. Tenants emailed instructions and landlord handles keys.' },
+      green: { rank: 3, label: 'Completed — Keys in Office', bg: 'var(--success-soft)', fg: 'var(--success)', msg: 'Complete. Tenants emailed instructions and we have keys.' }
+    };
+
+    function dealKeyState(d) {
+      if (d.keyContacted !== 'Yes') return 'grey';
+      const pickup = d.officePickup || '';
+      if (!pickup) return 'blue';
+      if (pickup === 'Need to Pick Up') return 'yellow';
+      if (pickup === 'In Office') return 'green';
+      // Checked but never answered ('Yes', or anything unrecognised) — not finished.
+      return 'grey';
+    }
+
+    // hasInstructions is a landlord-level fact; the rest is per address. Returns the state key
+    // plus the header text, which is the fixed message when every address agrees and a
+    // "X of N complete" tally when they don't.
+    function groupKeyStatus(rows, hasInstructions) {
+      if (!hasInstructions) return { state: 'red', text: '', mixed: false };
+      const states = rows.map(r => dealKeyState(r.deal));
+      const worst = states.reduce((a, b) => KEY_STATES[b].rank < KEY_STATES[a].rank ? b : a, states[0]);
+      const uniform = states.every(s => s === states[0]);
+      // 'grey' is the only not-complete state — yellow and green are both "tenants emailed",
+      // they just differ on where the keys are.
+      const complete = states.filter(s => s !== 'grey').length;
+      return {
+        state: worst,
+        text: uniform ? KEY_STATES[worst].msg : complete + ' of ' + states.length + ' complete',
+        mixed: !uniform
+      };
+    }
+
     // Groups are COLLAPSED by default, so this tracks the ones explicitly opened — keyed by
     // the group key (leaseStart|landlord) rather than by index so the state survives a
     // re-render that reorders or filters the list.
@@ -6760,11 +6824,19 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
           ? `<span onclick="event.stopPropagation();openLandlordPopup('${l.id}','')" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;">${nm}</span>`
           : nm;
         const warn = instr ? '' :
-          `<span style="font-size:11px;font-weight:500;color:var(--warning);margin-left:10px;">${l ? 'No instructions yet — click to add.' : 'No landlord record on this deal.'}</span>`;
+          `<span style="font-size:11px;font-weight:500;color:var(--danger);margin-left:10px;">${l ? 'No instructions yet — click to add.' : 'No landlord record on this deal.'}</span>`;
         const collapsed = !keysExpandedGroups[g.key];
         const count = g.rows.length + (g.rows.length === 1 ? ' address' : ' addresses');
-        html += `<tr onclick="toggleKeyGroup(${gi})" style="cursor:pointer;"><td colspan="5" style="${instr ? 'background:var(--surface2);' : 'background:var(--warning-soft);'}padding:9px 14px;font-size:13px;font-weight:600;border-top:1px solid var(--border);">
-        <span id="keys-caret-${gi}" style="display:inline-block;width:13px;color:var(--muted);font-size:10px;">${collapsed ? '▶' : '▼'}</span><span style="color:var(--muted);font-weight:500;">${formatDate(d0.leaseStart)}</span> &nbsp;·&nbsp; ${nameEl}${warn}<span style="font-size:11px;font-weight:400;color:var(--muted);margin-left:10px;">${count}</span></td></tr>`;
+        const status = groupKeyStatus(g.rows, !!instr);
+        const st = KEY_STATES[status.state];
+        // Label is the badge ("Completed — Keys in Office"); text is the sentence, or the
+        // "X of N complete" tally when the group's addresses aren't all in the same state.
+        const badge = st.label && !status.mixed
+          ? `<span style="display:inline-block;margin-left:10px;padding:1px 8px;border-radius:10px;font-size:10.5px;font-weight:600;background:#fff;color:${st.fg};border:1px solid ${st.fg};">${st.label}</span>` : '';
+        const msg = status.text
+          ? `<span style="font-size:11.5px;font-weight:${status.mixed ? '600' : '400'};color:${st.fg};margin-left:10px;">${status.mixed ? status.text : '“' + status.text + '”'}</span>` : '';
+        html += `<tr onclick="toggleKeyGroup(${gi})" style="cursor:pointer;"><td colspan="5" style="background:${st.bg};padding:9px 14px;font-size:13px;font-weight:600;border-top:1px solid var(--border);">
+        <span id="keys-caret-${gi}" style="display:inline-block;width:13px;color:var(--muted);font-size:10px;">${collapsed ? '▶' : '▼'}</span><span style="color:var(--muted);font-weight:500;">${formatDate(d0.leaseStart)}</span> &nbsp;·&nbsp; ${nameEl}<span style="font-size:11px;font-weight:400;color:var(--muted);margin-left:10px;">${count}</span>${badge}${warn}${msg}</td></tr>`;
         g.rows.forEach(r => {
           const d = r.deal;
           const contacted = d.keyContacted === 'Yes' ? 'Yes' : 'No';
@@ -6775,12 +6847,18 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
         <option value="Yes"${contacted === 'Yes' ? ' selected' : ''}>Yes</option>
       </select></td>
       <td><textarea onchange="saveKeyField('${d.id}','keyNotes',this.value)" placeholder="Unique circumstances for this deal…" style="width:100%;height:52px;font-size:12.5px;padding:6px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-body);resize:vertical;box-sizing:border-box;">${keysEsc(d.keyNotes || '')}</textarea></td>
-      <td style="text-align:center;"><input type="checkbox" ${d.officePickup === 'Yes' ? 'checked' : ''} onchange="saveKeyField('${d.id}','officePickup',this.checked ? 'Yes' : '')" style="width:16px;height:16px;cursor:pointer;"></td>
+      <td><div style="display:flex;align-items:center;gap:8px;"><input type="checkbox" ${d.officePickup ? 'checked' : ''} onchange="saveKeyField('${d.id}','officePickup',this.checked ? 'Yes' : '')" style="width:16px;height:16px;cursor:pointer;flex-shrink:0;">
+        ${d.officePickup ? `<select onchange="saveKeyField('${d.id}','officePickup',this.value)" style="flex:1;min-width:0;font-size:12px;padding:4px 6px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-body);">
+          <option value="Yes"${KEY_PICKUP_OPTIONS.includes(d.officePickup) ? '' : ' selected'}>— Select —</option>
+          ${KEY_PICKUP_OPTIONS.map(o => `<option value="${o}"${d.officePickup === o ? ' selected' : ''}>${o}</option>`).join('')}
+        </select>` : ''}</div></td>
       <td><button class="btn btn-ghost btn-xs" onclick="openKeyInstructionsDraftModal('${d.id}')">Generate Email</button></td></tr>`;
         });
       });
       dTbody.innerHTML = html || `<tr class="empty-row"><td colspan="5">${q ? 'No upcoming move-ins match “' + keysEsc(q) + '”.' : 'No upcoming move-ins.'}</td></tr>`;
       updateKeysToggleAllLabel();
+      // Re-applied on every render — a redraw would otherwise resurrect a collapsed table.
+      applyLandlordsCollapse();
     }
 
     // One group's rows are shown/hidden in place rather than by re-rendering, so an
@@ -6817,6 +6895,29 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
       deal[field] = value;
       deal.lastUpdated = new Date().toISOString();
       await saveRecord('deals', deal);
+      // Contacted and Office Pick Up drive the group's colour and badge, and ticking the
+      // pickup box has to reveal its sub-status dropdown — all of which need a redraw.
+      // keyNotes changes nothing on screen, so it saves silently and leaves the textarea
+      // the user is working in alone.
+      if (field === 'keyContacted' || field === 'officePickup') renderKeysPage();
+    }
+
+    // ── Management Company Instructions collapse (v7.5) ──
+    // Collapsed by default: the card moved below Upcoming Move-Ins as reference material, and
+    // Greg's stated reason for wanting the toggle was conserving space.
+    let keysLandlordsCollapsed = true;
+
+    function applyLandlordsCollapse() {
+      const wrap = document.getElementById('keys-landlords-wrap');
+      const btn = document.getElementById('keys-landlords-toggle');
+      if (!wrap || !btn) return;
+      wrap.style.display = keysLandlordsCollapsed ? 'none' : '';
+      btn.textContent = keysLandlordsCollapsed ? 'Expand' : 'Collapse';
+    }
+
+    function toggleLandlordsTable() {
+      keysLandlordsCollapsed = !keysLandlordsCollapsed;
+      applyLandlordsCollapse();
     }
 
     let _keyEmailDealId = null;
@@ -6925,7 +7026,10 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
     }
 
     function printOfficePickupList() {
-      const rows = keysUpcomingDeals().filter(r => r.deal.officePickup === 'Yes');
+      // Any non-empty officePickup means the box is ticked — 'Yes' is the not-yet-answered
+      // state, so it belongs on the list too. Matching === 'Yes' would drop every row that
+      // had actually been answered.
+      const rows = keysUpcomingDeals().filter(r => !!r.deal.officePickup);
       if (!rows.length) { alert('No upcoming move-ins are marked Office Pick Up.'); return; }
       const generated = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
       const th = 'border:1px solid #000;padding:6px 8px;text-align:left;';
