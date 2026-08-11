@@ -2011,7 +2011,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v7.3</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v7.4</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -6995,12 +6995,16 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
 
     // The outstanding list in the order the To Write table renders it. The table, the CSV
     // export and the email draft all read this one function so they can't drift apart.
-    // Deals with no lease start sort last rather than first — an empty string would
-    // otherwise beat every real date.
+    // Ordered lease start → landlord → deal (Greg, 2026-08-11), which is also the grouping
+    // hierarchy the email renders. Deals with no lease start sort last rather than first —
+    // an empty string would otherwise beat every real date. Deal id is the final tiebreak so
+    // two identically-named deals keep a stable order instead of shuffling between renders.
     function openChecksSorted() {
       return allChecks().filter(x => x.check.delivered !== 'Yes').sort((a, b) =>
         (a.deal.leaseStart || '9999-12-31').localeCompare(b.deal.leaseStart || '9999-12-31')
-        || (a.deal.name || '').localeCompare(b.deal.name || ''));
+        || (a.deal.landlordName || '').localeCompare(b.deal.landlordName || '')
+        || (a.deal.name || '').localeCompare(b.deal.name || '')
+        || a.deal.id.localeCompare(b.deal.id));
     }
 
     function renderChecksPage() {
@@ -7372,37 +7376,57 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
       return rows.reduce((sum, x) => sum + (parseFloat(x.check.amount) || 0), 0);
     }
 
+    // Groups by deal id via a Map so insertion order (and therefore group order) follows the
+    // sorted rows. Keying on id rather than collapsing contiguous runs means two different
+    // deals that happen to share a lease start AND a name can't be merged into one block.
+    function groupChecksByDeal(rows) {
+      const byDeal = new Map();
+      rows.forEach(x => {
+        if (!byDeal.has(x.deal.id)) byDeal.set(x.deal.id, { deal: x.deal, checks: [] });
+        byDeal.get(x.deal.id).checks.push(x.check);
+      });
+      return Array.from(byDeal.values());
+    }
+
+    // One block per deal:
+    //   Deal: <address> (lease starts <date>) - <landlord>
+    //   $<amount> payable to <payee> - <memo>
+    //
+    //   * <notes>
+    // The HTML flavour mirrors this exactly — Copy Formatted must not paste something
+    // structurally different from what's sitting in the textarea.
     function buildChecksEmail(rows) {
       const total = checkMoney(checksTotal(rows));
       const count = rows.length + (rows.length === 1 ? ' check' : ' checks');
-      let plain = 'Checks to write as of ' + formatDate(keysToday()) + ' — ' + count + ', ' + total + ' total.\n\n';
-      rows.forEach(x => {
-        const d = x.deal, c = x.check;
-        plain += checkMoney(c.amount) + ' payable to ' + (c.payableTo || '—') + '\n';
-        plain += '  Memo: ' + (c.memo || '—') + '\n';
-        plain += '  Deal: ' + (d.name || 'Untitled Deal') + (d.leaseStart ? ' (lease starts ' + formatDate(d.leaseStart) + ')' : '') + '\n';
-        plain += '  Landlord: ' + (d.landlordName || '—') + '\n';
-        if ((c.notes || '').trim()) plain += '  Notes: ' + c.notes + '\n';
-        plain += '\n';
-      });
+      const header = 'Checks to write as of ' + formatDate(keysToday()) + ' — ' + count + ', ' + total + ' total.';
+      const groups = groupChecksByDeal(rows);
 
-      let html = '<p>Checks to write as of ' + keysEsc(formatDate(keysToday())) + ' — <b>' + keysEsc(count) + ', ' + keysEsc(total) + ' total</b>.</p>';
-      html += '<table cellpadding="6" cellspacing="0" border="1" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;">'
-        + '<tr style="background:#f2f2f2;"><th align="left">Lease Start</th><th align="left">Deal</th><th align="left">Landlord</th>'
-        + '<th align="left">Amount</th><th align="left">Payable To</th><th align="left">Memo</th><th align="left">Notes</th></tr>';
-      rows.forEach(x => {
-        const d = x.deal, c = x.check;
-        html += '<tr>'
-          + '<td>' + keysEsc(d.leaseStart ? formatDate(d.leaseStart) : '—') + '</td>'
-          + '<td>' + keysEsc(d.name || 'Untitled Deal') + '</td>'
-          + '<td>' + keysEsc(d.landlordName || '—') + '</td>'
-          + '<td><b>' + keysEsc(checkMoney(c.amount)) + '</b></td>'
-          + '<td>' + keysEsc(c.payableTo || '—') + '</td>'
-          + '<td>' + keysEsc(c.memo || '—') + '</td>'
-          + '<td>' + keysEsc(c.notes || '') + '</td></tr>';
+      const dealLine = d => 'Deal: ' + resolveDealAddress(d)
+        + (d.leaseStart ? ' (lease starts ' + formatDate(d.leaseStart) + ')' : '')
+        + ' - ' + (d.landlordName || '—');
+      // A blank memo would otherwise leave a dangling " - " at the end of the line.
+      const checkLine = c => checkMoney(c.amount) + ' payable to ' + (c.payableTo || '—')
+        + ((c.memo || '').trim() ? ' - ' + c.memo : '');
+
+      const plain = header + '\n\n' + groups.map(g =>
+        dealLine(g.deal) + '\n' + g.checks.map(c => {
+          const parts = [checkLine(c)];
+          if ((c.notes || '').trim()) parts.push('* ' + c.notes);
+          return parts.join('\n\n');
+        }).join('\n\n')
+      ).join('\n\n');
+
+      let html = '<p>' + keysEsc(header) + '</p>';
+      groups.forEach(g => {
+        html += '<p style="margin:18px 0 6px;"><b>' + keysEsc(dealLine(g.deal)) + '</b></p>';
+        g.checks.forEach(c => {
+          html += '<p style="margin:0 0 4px;">' + keysEsc(checkLine(c)) + '</p>';
+          if ((c.notes || '').trim()) {
+            html += '<ul style="margin:0 0 10px;padding-left:20px;"><li>' + keysEsc(c.notes) + '</li></ul>';
+          }
+        });
       });
-      html += '</table>';
-      return { plain: plain.trimEnd(), html: html };
+      return { plain: plain, html: html };
     }
 
     function openChecksEmailDraft() {
