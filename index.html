@@ -2011,7 +2011,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v7.1</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v7.2</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -3077,25 +3077,26 @@
   </div>
 
   <div class="mini-overlay" id="check-overlay" onclick="if(event.target===this)closeCheckModal()">
-    <div class="mini-modal" style="width:560px;max-height:90vh;display:flex;flex-direction:column;">
+    <div class="mini-modal" style="width:640px;max-height:90vh;display:flex;flex-direction:column;">
       <div class="mini-title" id="check-modal-title" style="flex-shrink:0;">Add Check</div>
       <div style="flex:1;min-height:0;overflow-y:auto;">
         <div class="form-2col">
-          <div class="form-group full"><label>Deal</label><select id="cf-deal"
-              onchange="onCheckDealPicked()"></select></div>
-          <div class="form-group"><label>Check Amount ($)</label>
-            <div class="currency-wrap"><input type="number" id="cf-amount" step="0.01" placeholder="0.00"></div>
+          <div class="form-group full"><label>Deal</label>
+            <!-- Hidden #cf-deal holds the id; the visible input is search-only and never
+                 carries the value, so a half-typed name can't be mistaken for a selection. -->
+            <div class="search-dd"><input type="text" id="cf-deal-input" placeholder="Type to search deals…"
+                autocomplete="off" oninput="filterCheckDeals()" onfocus="openCheckDeals()">
+              <div class="dd-list" id="cf-deal-list"></div>
+            </div><input type="hidden" id="cf-deal">
           </div>
-          <div class="form-group"><label>Payable To</label><input type="text" id="cf-payable"
-              placeholder="Landlord or management company"></div>
-          <div class="form-group full"><label>Memo</label><input type="text" id="cf-memo"
-              placeholder="What the check is for — e.g. Security deposit, 12 Comm Ave #3"></div>
-          <div class="form-group full"><label>Notes</label><textarea id="cf-notes"
-              placeholder="Anything else worth knowing before this gets dropped off"></textarea></div>
         </div>
+        <!-- One block per check. All of them save against the single deal above. -->
+        <div id="check-rows" style="margin-top:4px;"></div>
+        <button class="btn btn-ghost btn-sm" type="button" id="check-add-row" onclick="addCheckRow()"
+          style="margin-top:2px;">+ Add Another Check</button>
       </div>
       <div class="mini-footer" style="flex-shrink:0;"><button class="btn btn-ghost"
-          onclick="closeCheckModal()">Cancel</button><button class="btn btn-primary"
+          onclick="closeCheckModal()">Cancel</button><button class="btn btn-primary" id="check-save-btn"
           onclick="saveCheckModal()">Save</button></div>
     </div>
   </div>
@@ -7059,71 +7060,266 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
     // {dealId, checkId} while editing, null while adding.
     let _editingCheck = null;
 
-    function openCheckModal(dealId, checkId) {
-      const sel = document.getElementById('cf-deal');
-      const deals = checksVisibleDeals().slice().sort((a, b) =>
+    // ── Deal type-to-search ──
+    // Same .search-dd / .dd-list markup as the deal form's pickers, but its own handlers:
+    // the shared filterDD()/selectDD() pair is wired to getItems() and the df-*-id hidden
+    // fields and appends an "Add New" row, none of which apply here.
+    function checkDealOptions() {
+      return checksVisibleDeals().slice().sort((a, b) =>
         (a.leaseStart || '9999-12-31').localeCompare(b.leaseStart || '9999-12-31')
-        || (a.name || '').localeCompare(b.name || ''));
-      sel.innerHTML = '<option value="">— Select a deal —</option>' + deals.map(d => {
-        const label = (d.name || 'Untitled Deal') + ' · ' + resolveDealAddress(d) + (d.leaseStart ? ' · ' + formatDate(d.leaseStart) : '');
-        return `<option value="${d.id}">${keysEsc(label)}</option>`;
-      }).join('');
+        || (a.name || '').localeCompare(b.name || ''))
+        .map(d => ({
+          id: d.id,
+          label: (d.name || 'Untitled Deal') + ' · ' + resolveDealAddress(d) + (d.leaseStart ? ' · ' + formatDate(d.leaseStart) : '')
+        }));
+    }
 
+    function renderCheckDealList() {
+      const q = (document.getElementById('cf-deal-input').value || '').trim().toLowerCase();
+      const list = document.getElementById('cf-deal-list');
+      const items = checkDealOptions().filter(i => i.label.toLowerCase().includes(q));
+      list.innerHTML = items.length
+        ? items.map(i => `<div class="dd-item" onclick="selectCheckDeal('${i.id}')">${keysEsc(i.label)}</div>`).join('')
+        : `<div class="dd-item" style="color:var(--muted);cursor:default;">No matching deals.</div>`;
+      list.classList.add('open');
+    }
+
+    function openCheckDeals() { renderCheckDealList(); }
+
+    // Typing invalidates the previous pick — otherwise editing the text while leaving the
+    // hidden id in place would save the check against whatever deal was chosen before.
+    function filterCheckDeals() {
+      document.getElementById('cf-deal').value = '';
+      renderCheckDealList();
+    }
+
+    function selectCheckDeal(dealId) {
+      const opt = checkDealOptions().find(o => o.id === dealId);
+      if (!opt) return;
+      document.getElementById('cf-deal').value = dealId;
+      document.getElementById('cf-deal-input').value = opt.label;
+      closeAllDD();
+      onCheckDealPicked();
+    }
+
+    // ── Memo ──
+    // Only the four landlord-bound payment types — the same set that carries Delivered?
+    // flags on the deal. App Fee and Broker Fee are ours, so we never cut the landlord a
+    // check for them. Greg's call, 2026-08-11.
+    const CHECK_MEMO_TYPES = ['FMR', 'LMR', 'Security Deposit', 'Key Fee'];
+
+    function collectedMemoTypes(deal) {
+      if (!deal) return [];
+      return CHECK_MEMO_TYPES.filter(label => parseFloat(deal[PAYMENT_TYPE_MAP[label]] || 0) > 0);
+    }
+
+    // ── Check rows ──
+    // One block per check, all saving against the single deal picked above them. Mirrors the
+    // paymentRows pattern: updateCheckRow() writes straight into the array WITHOUT
+    // re-rendering, so typing never loses focus; only discrete clicks (add, remove, memo
+    // pick) re-render, and the array repopulates every field.
+    let checkRows = [];
+    let checkRowId = 0;
+
+    function blankCheckRow(deal) {
+      const landlord = (deal && deal.landlordName) || '';
+      // autoPayable/autoAmount remember what WE filled in, so a later deal change can
+      // replace those values without touching anything typed by hand.
+      return {
+        id: ++checkRowId, memoType: '', memoOther: '', amount: '',
+        payableTo: landlord, notes: '', autoPayable: landlord, autoAmount: ''
+      };
+    }
+
+    function currentCheckDeal() {
+      return (db.deals || []).find(d => d.id === document.getElementById('cf-deal').value) || null;
+    }
+
+    function addCheckRow() {
+      checkRows.push(blankCheckRow(currentCheckDeal()));
+      renderCheckRows();
+    }
+
+    // Never drop to zero rows — an empty modal has nothing to save and no way back.
+    function removeCheckRow(id) {
+      if (checkRows.length <= 1) return;
+      checkRows = checkRows.filter(r => r.id !== id);
+      renderCheckRows();
+    }
+
+    function updateCheckRow(id, field, value) {
+      const r = checkRows.find(x => x.id === id);
+      if (r) r[field] = value;
+    }
+
+    function onCheckRowMemoPicked(id, value) {
+      const r = checkRows.find(x => x.id === id);
+      if (!r) return;
+      r.memoType = value;
+      if (value !== 'Other') r.memoOther = '';
+      // Seed the amount with what was collected — only while it's still blank, so it never
+      // overwrites a figure already typed.
+      const deal = currentCheckDeal();
+      if (deal && value && value !== 'Other' && !String(r.amount).trim()) {
+        const collected = parseFloat(deal[PAYMENT_TYPE_MAP[value]] || 0);
+        if (collected > 0) { r.amount = collected.toFixed(2); r.autoAmount = r.amount; }
+      }
+      renderCheckRows();
+    }
+
+    function renderCheckRows() {
+      const wrap = document.getElementById('check-rows');
+      if (!wrap) return;
+      const deal = currentCheckDeal();
+      const types = collectedMemoTypes(deal);
+      const multi = checkRows.length > 1;
+      wrap.innerHTML = checkRows.map((r, i) => {
+        // A memo that isn't one of the generated options is free text — from Other, or from
+        // a check saved before this dropdown existed. It comes back under Other rather than
+        // being silently dropped.
+        const isListed = r.memoType && types.includes(r.memoType);
+        const selValue = isListed ? r.memoType : (r.memoType ? 'Other' : '');
+        const opts = '<option value="">— Select —</option>'
+          + types.map(t => `<option value="${t}"${selValue === t ? ' selected' : ''}>${t} — ${checkMoney(deal[PAYMENT_TYPE_MAP[t]])} collected</option>`).join('')
+          + `<option value="Other"${selValue === 'Other' ? ' selected' : ''}>Other…</option>`;
+        return `<div style="border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div style="font-size:12px;font-weight:600;color:var(--muted);">CHECK ${i + 1}</div>
+        ${multi ? `<button type="button" onclick="removeCheckRow(${r.id})" title="Remove this check" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;padding:0;line-height:1;">×</button>` : ''}
+      </div>
+      <div class="form-2col">
+        <div class="form-group full"><label>Memo</label>
+          <select onchange="onCheckRowMemoPicked(${r.id},this.value)">${opts}</select></div>
+        ${selValue === 'Other' ? `<div class="form-group full"><label>Memo — Other</label>
+          <input type="text" placeholder="What the check is for" value="${keysEsc(r.memoOther || '')}" oninput="updateCheckRow(${r.id},'memoOther',this.value)"></div>` : ''}
+        <div class="form-group"><label>Check Amount ($)</label>
+          <div class="currency-wrap"><input type="number" step="0.01" placeholder="0.00" value="${keysEsc(r.amount || '')}" oninput="updateCheckRow(${r.id},'amount',this.value)"></div></div>
+        <div class="form-group"><label>Payable To</label>
+          <input type="text" placeholder="Landlord or management company" value="${keysEsc(r.payableTo || '')}" oninput="updateCheckRow(${r.id},'payableTo',this.value)"></div>
+        <div class="form-group full"><label>Notes</label>
+          <textarea placeholder="Anything else worth knowing before this gets dropped off" oninput="updateCheckRow(${r.id},'notes',this.value)">${keysEsc(r.notes || '')}</textarea></div>
+      </div>
+    </div>`;
+      }).join('');
+    }
+
+    function openCheckModal(dealId, checkId) {
       const found = dealId && checkId ? findCheck(dealId, checkId) : { deal: null, check: null };
       const c = found.check;
       _editingCheck = c ? { dealId: dealId, checkId: checkId } : null;
-      document.getElementById('check-modal-title').textContent = c ? 'Edit Check' : 'Add Check';
-      sel.value = c ? dealId : '';
+      document.getElementById('check-modal-title').textContent = c ? 'Edit Check' : 'Add Checks';
+
+      const dealInput = document.getElementById('cf-deal-input');
+      document.getElementById('cf-deal').value = c ? dealId : '';
+      dealInput.value = c ? (checkDealOptions().find(o => o.id === dealId) || {}).label || (found.deal.name || '') : '';
       // Reassigning a check to a different deal isn't a real workflow — delete and re-add.
-      sel.disabled = !!c;
-      document.getElementById('cf-amount').value = c ? (c.amount || '') : '';
-      document.getElementById('cf-payable').value = c ? (c.payableTo || '') : '';
-      document.getElementById('cf-memo').value = c ? (c.memo || '') : '';
-      document.getElementById('cf-notes').value = c ? (c.notes || '') : '';
+      dealInput.disabled = !!c;
+      closeAllDD();
+
+      checkRowId = 0;
+      if (c) {
+        // Editing is always exactly one check. Saved values are the user's, not ours, so the
+        // auto-fill trackers stay empty and nothing here is treated as ours to overwrite.
+        // memoOther only carries the memo when it ISN'T a listed type — otherwise switching
+        // the dropdown to Other would prefill the box with a payment-type name.
+        const listed = collectedMemoTypes(found.deal).includes(c.memo);
+        checkRows = [{
+          id: ++checkRowId, memoType: c.memo || '', memoOther: listed ? '' : (c.memo || ''),
+          amount: c.amount || '', payableTo: c.payableTo || '', notes: c.notes || '',
+          autoPayable: '', autoAmount: ''
+        }];
+      } else {
+        checkRows = [blankCheckRow(null)];
+      }
+      document.getElementById('check-add-row').style.display = c ? 'none' : '';
+      renderCheckRows();
       document.getElementById('check-overlay').classList.add('open');
     }
 
     function closeCheckModal() {
       document.getElementById('check-overlay').classList.remove('open');
+      closeAllDD();
       _editingCheck = null;
+      checkRows = [];
     }
 
-    // Picking a deal seeds Payable To with its landlord — only when the field is still
-    // blank, so it never overwrites something already typed.
+    // Picking a deal reseeds every row's Payable To and rebuilds the Memo options, which are
+    // per-deal and meaningless once the deal changes.
+    //
+    // ⚠️ Switching deals must not leave the PREVIOUS deal's landlord or amount sitting in a
+    // row — that writes a check to the wrong payee, the exact mistake this page exists to
+    // prevent. Each row remembers what was auto-filled into it, so a field is replaced when
+    // it's blank or still holds that value, and left alone when it was typed by hand.
     function onCheckDealPicked() {
-      const payable = document.getElementById('cf-payable');
-      if (payable.value.trim()) return;
-      const deal = (db.deals || []).find(d => d.id === document.getElementById('cf-deal').value);
-      if (deal && deal.landlordName) payable.value = deal.landlordName;
+      const deal = currentCheckDeal();
+      const landlord = (deal && deal.landlordName) || '';
+      const types = collectedMemoTypes(deal);
+      checkRows.forEach(r => {
+        if (!String(r.payableTo).trim() || String(r.payableTo).trim() === r.autoPayable) {
+          r.payableTo = landlord;
+          r.autoPayable = landlord;
+        }
+        // The old amount came from the old deal's collected total — drop it and let the new
+        // Memo pick reseed it.
+        if (!String(r.amount).trim() || String(r.amount).trim() === r.autoAmount) {
+          r.amount = '';
+          r.autoAmount = '';
+        }
+        // A payment type that the new deal didn't collect is no longer offered; free text
+        // typed under Other survives the switch.
+        if (r.memoType && r.memoType !== 'Other' && !types.includes(r.memoType) && !r.memoOther) r.memoType = '';
+      });
+      renderCheckRows();
+    }
+
+    function checkRowMemo(r) {
+      // The dropdown value IS the memo for a payment type; only "Other" reads the text box.
+      const types = collectedMemoTypes(currentCheckDeal());
+      if (r.memoType && types.includes(r.memoType)) return r.memoType;
+      return String(r.memoOther || '').trim();
     }
 
     async function saveCheckModal() {
-      const dealId = document.getElementById('cf-deal').value;
-      const deal = (db.deals || []).find(d => d.id === dealId);
+      const deal = currentCheckDeal();
       if (!deal) { alert('Pick the deal this check belongs to.'); return; }
-      // An <input type="number"> reports '' for anything it can't parse, so "abc" and an
-      // empty box are indistinguishable here — one message covers both. A check with no
-      // amount on it isn't something anyone can go write, so it's required.
-      const amount = parseFloat(document.getElementById('cf-amount').value.trim());
-      if (isNaN(amount) || amount <= 0) { alert('Enter a check amount greater than zero.'); return; }
-      const fields = {
-        amount: amount.toFixed(2),
-        payableTo: document.getElementById('cf-payable').value.trim(),
-        memo: document.getElementById('cf-memo').value.trim(),
-        notes: document.getElementById('cf-notes').value.trim()
-      };
+
+      // Validate every row before writing any of them — a partial save would leave the user
+      // guessing which checks landed.
+      const prepared = [];
+      for (let i = 0; i < checkRows.length; i++) {
+        const r = checkRows[i];
+        // An <input type="number"> reports '' for anything it can't parse, so "abc" and an
+        // empty box are indistinguishable here — one message covers both. A check with no
+        // amount on it isn't something anyone can go write, so it's required.
+        const amount = parseFloat(String(r.amount).trim());
+        if (isNaN(amount) || amount <= 0) {
+          alert((checkRows.length > 1 ? 'Check ' + (i + 1) + ': e' : 'E') + 'nter a check amount greater than zero.');
+          return;
+        }
+        prepared.push({
+          amount: amount.toFixed(2),
+          payableTo: String(r.payableTo || '').trim(),
+          memo: checkRowMemo(r),
+          notes: String(r.notes || '').trim()
+        });
+      }
+
       if (!deal.checks) deal.checks = [];
       if (_editingCheck) {
         const c = deal.checks.find(x => x.id === _editingCheck.checkId);
         if (!c) { alert('That check no longer exists.'); closeCheckModal(); renderChecksPage(); return; }
         // delivered / deliveredDate belong to the checkbox, not this form — assigning the
         // whole object here would silently un-deliver a check on every edit.
-        Object.assign(c, fields);
+        Object.assign(c, prepared[0]);
       } else {
-        deal.checks.push(Object.assign({
-          id: 'chk_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-          delivered: '', deliveredDate: ''
-        }, fields));
+        prepared.forEach((fields, i) => {
+          deal.checks.push(Object.assign({
+            // Date.now() is identical across a same-tick batch, so the random suffix and the
+            // index are what actually keep these ids distinct.
+            id: 'chk_' + Date.now() + '_' + i + '_' + Math.random().toString(36).slice(2, 6),
+            delivered: '', deliveredDate: ''
+          }, fields));
+        });
       }
       deal.lastUpdated = new Date().toISOString();
       await saveRecord('deals', deal);
