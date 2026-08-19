@@ -591,6 +591,12 @@
       color: var(--warning);
     }
 
+    /* Blue, so a reminder never reads as money owed (red) or a delivery (amber). */
+    .issue-tag.reminder {
+      background: var(--info-soft);
+      color: var(--info);
+    }
+
     /* MODAL OVERLAY */
     .overlay {
       display: none;
@@ -2018,7 +2024,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v7.7</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v7.8</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -2028,6 +2034,9 @@
           Needed</button>
         <button class="nav-tab" id="nav-checks" data-page="checks" onclick="showPage('checks',this)"
           style="display:none;position:relative;">Checks to Write<span id="checks-badge"
+            style="display:none;position:absolute;top:-4px;right:-2px;background:#c0392b;color:#fff;border-radius:10px;padding:1px 5px;font-size:10px;font-weight:600;line-height:1.4;"></span></button>
+        <button class="nav-tab" id="nav-reminders" data-page="reminders" onclick="showPage('reminders',this)"
+          style="position:relative;">Reminders<span id="reminders-badge"
             style="display:none;position:absolute;top:-4px;right:-2px;background:#c0392b;color:#fff;border-radius:10px;padding:1px 5px;font-size:10px;font-weight:600;line-height:1.4;"></span></button>
         <button class="nav-tab" data-page="keys" onclick="showPage('keys',this)">Key Instructions</button>
         <!-- HAMBURGER -->
@@ -2614,6 +2623,58 @@
         </div>
       </div>
 
+      <div class="page" id="page-reminders">
+        <div class="page-hdr">
+          <div>
+            <div class="page-title">Reminders</div>
+            <div class="page-subtitle">Notes to keep a deal top of mind. Nothing here alerts you &mdash; it just stays visible.</div>
+          </div><button class="btn btn-primary" onclick="openReminderModal()">+ Add Reminder</button>
+        </div>
+        <div class="card" style="margin-bottom:18px;">
+          <div style="padding:16px 14px 12px;">
+            <div style="font-family:var(--font-head);font-size:15px;margin-bottom:2px;">Open</div>
+            <div style="font-size:12.5px;color:var(--muted);">Most recently added first. Tick Clear once you're done with
+              it &mdash; it moves to the table below.</div>
+          </div>
+          <div style="overflow-x:auto;">
+            <table style="min-width:860px;">
+              <thead>
+                <tr>
+                  <th style="width:110px;">Date Added</th>
+                  <th style="width:260px;">Deal Address</th>
+                  <th>Reminder</th>
+                  <th style="width:70px;">Clear?</th>
+                  <th style="width:110px;"></th>
+                </tr>
+              </thead>
+              <tbody id="reminders-open-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div style="padding:16px 14px 12px;">
+            <div style="font-family:var(--font-head);font-size:15px;margin-bottom:2px;">Cleared</div>
+            <div style="font-size:12.5px;color:var(--muted);">Most recently cleared first. Untick to move a reminder back
+              to the list above.</div>
+          </div>
+          <div style="overflow-x:auto;">
+            <table style="min-width:860px;">
+              <thead>
+                <tr>
+                  <th style="width:110px;">Cleared On</th>
+                  <th style="width:110px;">Date Added</th>
+                  <th style="width:260px;">Deal Address</th>
+                  <th>Reminder</th>
+                  <th style="width:70px;">Clear?</th>
+                  <th style="width:110px;"></th>
+                </tr>
+              </thead>
+              <tbody id="reminders-done-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <div class="page" id="page-agents">
         <div class="page-hdr">
           <div>
@@ -3120,6 +3181,31 @@
       <div class="mini-footer" style="flex-shrink:0;"><button class="btn btn-ghost"
           onclick="closeCheckModal()">Cancel</button><button class="btn btn-primary" id="check-save-btn"
           onclick="saveCheckModal()">Save</button></div>
+    </div>
+  </div>
+
+  <div class="mini-overlay" id="reminder-overlay" onclick="if(event.target===this)closeReminderModal()">
+    <div class="mini-modal" style="width:560px;max-height:90vh;display:flex;flex-direction:column;">
+      <div class="mini-title" id="reminder-modal-title" style="flex-shrink:0;">Add Reminder</div>
+      <div style="flex:1;min-height:0;overflow-y:auto;">
+        <div class="form-2col">
+          <!-- Same hidden-id / search-only-input split as the check modal's picker, so a
+               half-typed name can't be mistaken for a selection. -->
+          <div class="form-group full" id="rf-deal-group"><label>Deal</label>
+            <div class="search-dd"><input type="text" id="rf-deal-input" placeholder="Type to search deals&hellip;"
+                autocomplete="off" oninput="filterReminderDeals()" onfocus="openReminderDeals()">
+              <div class="dd-list" id="rf-deal-list"></div>
+            </div><input type="hidden" id="rf-deal">
+          </div>
+          <div class="form-group full"><label>Reminder</label>
+            <textarea id="rf-text" rows="4" placeholder="What do you need to remember about this deal?"
+              style="width:100%;font-size:13px;font-family:var(--font-body);color:var(--text);background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px;resize:vertical;box-sizing:border-box;line-height:1.6;"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="mini-footer" style="flex-shrink:0;"><button class="btn btn-ghost"
+          onclick="closeReminderModal()">Cancel</button><button class="btn btn-primary" id="reminder-save-btn"
+          onclick="saveReminderModal()">Save</button></div>
     </div>
   </div>
 
@@ -3810,6 +3896,7 @@
       if (p === 'agents') renderObjTable('agent');
       if (p === 'keys') renderKeysPage();
       if (p === 'checks') renderChecksPage();
+      if (p === 'reminders') renderRemindersPage();
       if (p === 'archived') renderArchivedTable();
       if (p === 'drafts') renderDraftsTable();
       if (p === 'requests') renderRequestsTable();
@@ -3997,7 +4084,7 @@
           : `<span class="badge badge-active">✓ All Paid</span>`;
         return `<tr onclick="openDealDetail('${d.id}')">
       <td>${formatDate(d.leaseStart)}</td>
-      <td style="font-weight:500;">${d.name || '—'}</td>
+      <td style="font-weight:500;">${d.name || '—'}${hasOpenReminder(d) ? ` <span class="issue-tag reminder" style="margin-left:4px;">Reminder Set</span>` : ''}</td>
       <td>${d.landlordName || '—'}</td>
       <td>${d.agentName || '—'}</td>
       <td><span class="badge ${stageCls}">${STAGE_NAMES[stage]}</span></td>
@@ -4145,6 +4232,7 @@
         <button class="btn btn-ghost btn-sm" onclick="openNCFDraftModal('${d.id}')">Generate Notarized Cosigner</button>
         <button class="btn btn-ghost btn-sm" onclick="openInvoiceModal('${d.id}')">Generate Invoice</button>
         <button class="btn btn-ghost btn-sm" onclick="openReceiptModal('${d.id}')">Generate Receipt</button>
+        <button class="btn btn-ghost btn-sm" onclick="openReminderModal('${d.id}')">+ Reminder</button>
         <button class="btn btn-ghost btn-sm" onclick="openArchiveModal('${d.id}')">Archive</button>
         <button class="btn btn-danger btn-sm" onclick="deleteDeal('${d.id}')">Delete</button>
       ` : `
@@ -4154,6 +4242,7 @@
         <button class="btn btn-ghost btn-sm" onclick="openNCFDraftModal('${d.id}')">Generate Notarized Cosigner</button>
         <button class="btn btn-ghost btn-sm" onclick="openInvoiceModal('${d.id}')">Generate Invoice</button>
         <button class="btn btn-ghost btn-sm" onclick="openReceiptModal('${d.id}')">Generate Receipt</button>
+        <button class="btn btn-ghost btn-sm" onclick="openReminderModal('${d.id}')">+ Reminder</button>
       `}
     </div>
     <div class="stage-bar" style="margin-bottom:20px;">${stageBar}</div>
@@ -5590,10 +5679,14 @@
         document.getElementById('nav-checks').style.display = '';
         updateRequestsBadge();
         updateChecksBadge();
+        updateRemindersBadge();
       } else {
         // Agent: hide admin-only tabs
         document.getElementById('nav-requests').style.display = 'none';
         document.getElementById('nav-checks').style.display = 'none';
+        // Reminders stay visible for agents: db.deals is filtered to their own deals just
+        // below, so the count is a true total of what they can actually see.
+        updateRemindersBadge();
         // Hide + New Deal button — agents can add deals
         // Filter deals to only their own
         db.deals = db.deals.filter(d =>
@@ -6395,7 +6488,9 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
     // ══════════════════════════════════════
     // HASH-BASED PAGE NAVIGATION
     // ══════════════════════════════════════
-    const VALID_PAGES = ['dashboard', 'payments', 'delivery', 'clients', 'addresses', 'landlords', 'agents', 'archived', 'drafts', 'requests'];
+    // NOTE: 'checks' and 'keys' are absent — pre-existing, so #checks on a cold load
+    // silently lands on the dashboard. Flagged to Greg 2026-08-19, not changed here.
+    const VALID_PAGES = ['dashboard', 'payments', 'delivery', 'clients', 'addresses', 'landlords', 'agents', 'archived', 'drafts', 'requests', 'reminders'];
 
     function restoreFromHash() {
       const hash = location.hash.slice(1); // remove #
@@ -7712,6 +7807,231 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
         + '</div>'
         + '<div style="font-size:14px;font-style:italic;color:#333;">Thank you for the opportunity to assist in the rental of your property.</div>'
         + '</div>';
+    }
+
+    // ── REMINDERS ───────────────────────────────────────────────────────────────────
+    // Free-text notes pinned to a deal, to keep it top of mind. No alarms, no due dates —
+    // Greg, 2026-08-19. Stored as deal.reminders[], the same shape as deal.checks[], so
+    // this needed no schema change.
+    //
+    // Visible to every role. applyRolePermissions() already filters db.deals to an agent's
+    // own deals, so remindersVisibleDeals() scoping and the badge count come for free —
+    // unlike Checks to Write, whose count WOULD be a partial number presented as a total.
+
+    function remindersVisibleDeals() {
+      return (db.deals || []).filter(d => d.status !== 'archived');
+    }
+
+    // Flattened {deal, reminder} pairs — the tables need the deal for the address column,
+    // and the reminder can't be found again without knowing which deal it came from.
+    function allReminders() {
+      const out = [];
+      remindersVisibleDeals().forEach(d => (d.reminders || []).forEach(r => out.push({ deal: d, reminder: r })));
+      return out;
+    }
+
+    // Drives the dashboard pill. Reads the deal directly rather than allReminders() so an
+    // archived deal still shows its own pill if one is ever rendered outside the tab.
+    function hasOpenReminder(d) {
+      return (d.reminders || []).some(r => r.cleared !== 'Yes');
+    }
+
+    function updateRemindersBadge() {
+      const badge = document.getElementById('reminders-badge');
+      if (!badge) return;
+      // Counts REMINDERS, not deals — one deal can carry several.
+      const n = allReminders().filter(x => x.reminder.cleared !== 'Yes').length;
+      badge.textContent = n;
+      badge.style.display = n > 0 ? 'inline' : 'none';
+    }
+
+    function renderRemindersPage() {
+      const openT = document.getElementById('reminders-open-tbody');
+      const doneT = document.getElementById('reminders-done-tbody');
+      if (!openT || !doneT) return;
+      const all = allReminders();
+
+      const open = all.filter(x => x.reminder.cleared !== 'Yes')
+        .sort((a, b) => (b.reminder.dateAdded || '').localeCompare(a.reminder.dateAdded || ''));
+      const done = all.filter(x => x.reminder.cleared === 'Yes')
+        .sort((a, b) => (b.reminder.clearedDate || '').localeCompare(a.reminder.clearedDate || ''));
+
+      openT.innerHTML = open.length ? open.map(x => reminderRow(x, false)).join('')
+        : `<tr class="empty-row"><td colspan="5">No open reminders.</td></tr>`;
+      doneT.innerHTML = done.length ? done.map(x => reminderRow(x, true)).join('')
+        : `<tr class="empty-row"><td colspan="6">No cleared reminders yet.</td></tr>`;
+      updateRemindersBadge();
+    }
+
+    function reminderRow(x, isDone) {
+      const d = x.deal, r = x.reminder;
+      const clearedCell = isDone
+        ? `<td style="font-size:12.5px;">${r.clearedDate ? formatDate(r.clearedDate) : '—'}</td>` : '';
+      return `<tr>${clearedCell}
+      <td style="font-size:12.5px;">${r.dateAdded ? formatDate(r.dateAdded) : '—'}</td>
+      <td style="font-weight:500;"><span onclick="openDealDetail('${d.id}')" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;">${keysEsc(resolveDealAddress(d))}</span></td>
+      <td style="font-size:12.5px;white-space:pre-wrap;">${keysEsc(r.text || '—')}</td>
+      <td style="text-align:center;"><input type="checkbox" ${r.cleared === 'Yes' ? 'checked' : ''} onchange="toggleReminderCleared('${d.id}','${r.id}',this.checked)" style="width:16px;height:16px;cursor:pointer;"></td>
+      <td style="white-space:nowrap;"><button class="btn btn-ghost btn-xs" onclick="openReminderModal('${d.id}','${r.id}')">Edit</button><button class="btn btn-ghost btn-xs" style="color:var(--danger);" onclick="deleteReminder('${d.id}','${r.id}')">Delete</button></td></tr>`;
+    }
+
+    function findReminder(dealId, reminderId) {
+      const deal = (db.deals || []).find(d => d.id === dealId);
+      const reminder = deal ? (deal.reminders || []).find(r => r.id === reminderId) : null;
+      return { deal: deal, reminder: reminder };
+    }
+
+    async function toggleReminderCleared(dealId, reminderId, on) {
+      const { deal, reminder } = findReminder(dealId, reminderId);
+      if (!deal || !reminder) return;
+      reminder.cleared = on ? 'Yes' : '';
+      // keysToday() is local-calendar, not toISOString() — the UTC version stamps tomorrow
+      // for anything cleared after 8pm EDT.
+      reminder.clearedDate = on ? keysToday() : '';
+      deal.lastUpdated = new Date().toISOString();
+      await saveRecord('deals', deal);
+      renderRemindersPage();
+      applyFilters();
+    }
+
+    async function deleteReminder(dealId, reminderId) {
+      const { deal, reminder } = findReminder(dealId, reminderId);
+      if (!deal || !reminder) return;
+      if (!confirm(`Delete this reminder?\n\n${reminder.text || ''}\n\nThis can't be undone.`)) return;
+      deal.reminders = (deal.reminders || []).filter(r => r.id !== reminderId);
+      deal.lastUpdated = new Date().toISOString();
+      await saveRecord('deals', deal);
+      renderRemindersPage();
+      applyFilters();
+    }
+
+    // ── ADD / EDIT REMINDER MODAL ──
+    // {dealId, reminderId} while editing, null while adding.
+    let _editingReminder = null;
+    // Set when opened from a deal detail: the deal is known, so the picker is hidden.
+    let _reminderFixedDeal = null;
+
+    function reminderDealOptions() {
+      return remindersVisibleDeals().slice().sort((a, b) =>
+        (a.leaseStart || '9999-12-31').localeCompare(b.leaseStart || '9999-12-31')
+        || (a.name || '').localeCompare(b.name || ''))
+        .map(d => ({
+          id: d.id,
+          label: (d.name || 'Untitled Deal') + ' · ' + resolveDealAddress(d) + (d.leaseStart ? ' · ' + formatDate(d.leaseStart) : '')
+        }));
+    }
+
+    function renderReminderDealList() {
+      const q = (document.getElementById('rf-deal-input').value || '').trim().toLowerCase();
+      const list = document.getElementById('rf-deal-list');
+      const items = reminderDealOptions().filter(i => i.label.toLowerCase().includes(q));
+      list.innerHTML = items.length
+        ? items.map(i => `<div class="dd-item" onclick="selectReminderDeal('${i.id}')">${keysEsc(i.label)}</div>`).join('')
+        : `<div class="dd-item" style="color:var(--muted);cursor:default;">No matching deals.</div>`;
+      list.classList.add('open');
+    }
+
+    function openReminderDeals() { renderReminderDealList(); }
+
+    // Typing invalidates the previous pick, so a stale id can't ride along with edited text.
+    function filterReminderDeals() {
+      document.getElementById('rf-deal').value = '';
+      renderReminderDealList();
+    }
+
+    function selectReminderDeal(dealId) {
+      const opt = reminderDealOptions().find(o => o.id === dealId);
+      if (!opt) return;
+      document.getElementById('rf-deal').value = dealId;
+      document.getElementById('rf-deal-input').value = opt.label;
+      closeAllDD();
+    }
+
+    // dealId given => that deal is fixed and the picker is hidden (opened from a deal card).
+    // dealId + reminderId => editing an existing one.
+    function openReminderModal(dealId, reminderId) {
+      _editingReminder = null;
+      _reminderFixedDeal = null;
+      const input = document.getElementById('rf-deal-input');
+      const hidden = document.getElementById('rf-deal');
+      const group = document.getElementById('rf-deal-group');
+      input.value = ''; hidden.value = '';
+      document.getElementById('rf-text').value = '';
+      group.style.display = '';
+      document.getElementById('reminder-modal-title').textContent = 'Add Reminder';
+
+      if (dealId) {
+        const d = (db.deals || []).find(x => x.id === dealId);
+        if (!d) return;
+        hidden.value = dealId;
+        if (reminderId) {
+          const r = (d.reminders || []).find(x => x.id === reminderId);
+          if (!r) { alert('That reminder no longer exists.'); return; }
+          _editingReminder = { dealId: dealId, reminderId: reminderId };
+          document.getElementById('rf-text').value = r.text || '';
+          document.getElementById('reminder-modal-title').textContent = 'Edit Reminder';
+          // Editing keeps the picker visible but pre-filled, so the deal can be corrected.
+          const opt = reminderDealOptions().find(o => o.id === dealId);
+          input.value = opt ? opt.label : resolveDealAddress(d);
+        } else {
+          // Opened from the deal card — the deal is not in question, so don't offer to change it.
+          _reminderFixedDeal = dealId;
+          group.style.display = 'none';
+        }
+      }
+      closeAllDD();
+      document.getElementById('reminder-overlay').classList.add('open');
+      setTimeout(() => document.getElementById('rf-text').focus(), 50);
+    }
+
+    function closeReminderModal() {
+      document.getElementById('reminder-overlay').classList.remove('open');
+      _editingReminder = null;
+      _reminderFixedDeal = null;
+      closeAllDD();
+    }
+
+    async function saveReminderModal() {
+      const dealId = _reminderFixedDeal || document.getElementById('rf-deal').value;
+      const deal = (db.deals || []).find(d => d.id === dealId);
+      if (!deal) { alert('Pick the deal this reminder belongs to.'); return; }
+      const text = String(document.getElementById('rf-text').value || '').trim();
+      if (!text) { alert('Enter the reminder.'); return; }
+
+      if (!deal.reminders) deal.reminders = [];
+      if (_editingReminder) {
+        // Look the reminder up on the deal it CURRENTLY lives on, not on `deal` — when the
+        // picker was changed, `deal` is the destination and the reminder isn't there yet, so
+        // searching it would fail the guard below and silently drop the whole edit.
+        const from = (db.deals || []).find(x => x.id === _editingReminder.dealId);
+        const r = from ? (from.reminders || []).find(x => x.id === _editingReminder.reminderId) : null;
+        if (!r) { alert('That reminder no longer exists.'); closeReminderModal(); renderRemindersPage(); return; }
+        // cleared / clearedDate belong to the checkbox, not this form — assigning the whole
+        // object here would silently un-clear a reminder on every edit.
+        r.text = text;
+        if (_editingReminder.dealId !== dealId) {
+          // Deal was changed on an edit: move the reminder rather than leaving a copy on the
+          // old deal, and save BOTH records.
+          from.reminders = (from.reminders || []).filter(x => x.id !== r.id);
+          from.lastUpdated = new Date().toISOString();
+          await saveRecord('deals', from);
+          deal.reminders.push(r);
+        }
+      } else {
+        deal.reminders.push({
+          // Date.now() is identical across a same-tick batch, so the random suffix is what
+          // actually keeps these ids distinct.
+          id: 'rem_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+          text: text,
+          dateAdded: keysToday(),
+          cleared: '', clearedDate: ''
+        });
+      }
+      deal.lastUpdated = new Date().toISOString();
+      await saveRecord('deals', deal);
+      closeReminderModal();
+      renderRemindersPage();
+      applyFilters();
     }
 
     // ── RECEIPT MODAL ───────────────────────────────────────────────────────────────
