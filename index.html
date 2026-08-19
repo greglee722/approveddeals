@@ -597,6 +597,13 @@
       color: var(--info);
     }
 
+    /* Amber. Red in this cell means the tenant still owes US; a check we owe the LANDLORD is
+       a different obligation and has to stay legible sitting directly beneath those. */
+    .issue-tag.checks {
+      background: var(--warning-soft);
+      color: var(--warning);
+    }
+
     /* MODAL OVERLAY */
     .overlay {
       display: none;
@@ -2024,7 +2031,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v8.0</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v8.1</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -4082,13 +4089,19 @@
         const payCell = payIss.length
           ? payIss.map(p => `<span class="issue-tag payment" style="margin:2px 2px 2px 0;display:inline-block;">${p}</span>`).join('')
           : `<span class="badge badge-active">✓ All Paid</span>`;
+        // Sits UNDER the payment pills / "All Paid" rather than replacing them: most deals
+        // owing a check read "✓ All Paid", which is true of the tenant and misleading about us.
+        const chkN = openCheckCount(d);
+        const checksPill = chkN
+          ? `<div style="margin-top:5px;"><span class="issue-tag checks">${chkN} Check${chkN > 1 ? 's' : ''} Required</span></div>`
+          : '';
         return `<tr onclick="openDealDetail('${d.id}')">
       <td>${formatDate(d.leaseStart)}</td>
       <td style="font-weight:500;">${d.name || '—'}</td>
       <td>${d.landlordName || '—'}</td>
       <td>${d.agentName || '—'}</td>
       <td><span class="badge ${stageCls}">${STAGE_NAMES[stage]}</span>${hasOpenReminder(d) ? `<div style="margin-top:5px;"><span class="issue-tag reminder">Reminder Set</span></div>` : ''}</td>
-      <td style="max-width:220px;">${payCell}</td>
+      <td style="max-width:220px;">${payCell}${checksPill}</td>
       <td style="white-space:nowrap;color:var(--muted);font-size:12px;">${relativeDate(d.lastUpdated)}</td>
       <td onclick="event.stopPropagation()" style="white-space:nowrap;">
         <button class="btn btn-ghost btn-xs" onclick="editDeal('${d.id}')">Edit</button>
@@ -7847,6 +7860,15 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
     // archived deal still shows its own pill if one is ever rendered outside the tab.
     function hasOpenReminder(d) {
       return (d.reminders || []).some(r => r.cleared !== 'Yes');
+    }
+
+    // Undelivered checks on one deal. Counts CHECKS not deals, matching the Checks to Write
+    // badge — 20 Concord Sq #5 owes two. Shown to every role: applyRolePermissions() has
+    // already filtered db.deals to an agent's own deals, so the number is a true count of what
+    // they can see. ⚠️ Agents cannot OPEN Checks to Write (nav-checks is hidden from them), so
+    // for an agent this pill is informational only — Greg's call, 2026-08-19.
+    function openCheckCount(d) {
+      return (d.checks || []).filter(c => c.delivered !== 'Yes').length;
     }
 
     function updateRemindersBadge() {
