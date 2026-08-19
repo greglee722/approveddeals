@@ -1728,6 +1728,15 @@
       color: var(--accent);
     }
 
+    /* Checks page headers build their arrows from JS (renderChecksSortIcons) rather than
+       inlining the SVG pair 19 times — same three-state arrows as the Deals table. */
+    .sort-ico {
+      display: inline-flex;
+      flex-direction: column;
+      gap: 1px;
+      opacity: 0.4;
+    }
+
     /* ── HAMBURGER MENU ── */
     .hamburger-item {
       display: flex;
@@ -2031,7 +2040,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v8.1</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v8.2</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -2587,13 +2596,13 @@
             <table style="min-width:1040px;">
               <thead>
                 <tr>
-                  <th style="width:100px;">Lease Start</th>
-                  <th style="width:170px;">Deal</th>
-                  <th style="width:150px;">Landlord</th>
-                  <th style="width:100px;">Amount</th>
-                  <th style="width:150px;">Payable To</th>
-                  <th style="width:150px;">Memo</th>
-                  <th>Notes</th>
+                  <th class="sortable" style="width:100px;" onclick="toggleChecksSort('open','leaseStart')">Lease Start <span class="sort-ico" id="csort-open-leaseStart"></span></th>
+                  <th class="sortable" style="width:170px;" onclick="toggleChecksSort('open','deal')">Deal <span class="sort-ico" id="csort-open-deal"></span></th>
+                  <th class="sortable" style="width:150px;" onclick="toggleChecksSort('open','landlord')">Landlord <span class="sort-ico" id="csort-open-landlord"></span></th>
+                  <th class="sortable" style="width:100px;" onclick="toggleChecksSort('open','amount')">Amount <span class="sort-ico" id="csort-open-amount"></span></th>
+                  <th class="sortable" style="width:150px;" onclick="toggleChecksSort('open','payableTo')">Payable To <span class="sort-ico" id="csort-open-payableTo"></span></th>
+                  <th class="sortable" style="width:150px;" onclick="toggleChecksSort('open','memo')">Memo <span class="sort-ico" id="csort-open-memo"></span></th>
+                  <th class="sortable" onclick="toggleChecksSort('open','notes')">Notes <span class="sort-ico" id="csort-open-notes"></span></th>
                   <th style="width:80px;">Delivered?</th>
                   <th style="width:110px;"></th>
                 </tr>
@@ -2612,14 +2621,14 @@
             <table style="min-width:1040px;">
               <thead>
                 <tr>
-                  <th style="width:100px;">Delivered On</th>
-                  <th style="width:100px;">Lease Start</th>
-                  <th style="width:170px;">Deal</th>
-                  <th style="width:150px;">Landlord</th>
-                  <th style="width:100px;">Amount</th>
-                  <th style="width:150px;">Payable To</th>
-                  <th style="width:150px;">Memo</th>
-                  <th>Notes</th>
+                  <th class="sortable" style="width:100px;" onclick="toggleChecksSort('done','deliveredOn')">Delivered On <span class="sort-ico" id="csort-done-deliveredOn"></span></th>
+                  <th class="sortable" style="width:100px;" onclick="toggleChecksSort('done','leaseStart')">Lease Start <span class="sort-ico" id="csort-done-leaseStart"></span></th>
+                  <th class="sortable" style="width:170px;" onclick="toggleChecksSort('done','deal')">Deal <span class="sort-ico" id="csort-done-deal"></span></th>
+                  <th class="sortable" style="width:150px;" onclick="toggleChecksSort('done','landlord')">Landlord <span class="sort-ico" id="csort-done-landlord"></span></th>
+                  <th class="sortable" style="width:100px;" onclick="toggleChecksSort('done','amount')">Amount <span class="sort-ico" id="csort-done-amount"></span></th>
+                  <th class="sortable" style="width:150px;" onclick="toggleChecksSort('done','payableTo')">Payable To <span class="sort-ico" id="csort-done-payableTo"></span></th>
+                  <th class="sortable" style="width:150px;" onclick="toggleChecksSort('done','memo')">Memo <span class="sort-ico" id="csort-done-memo"></span></th>
+                  <th class="sortable" onclick="toggleChecksSort('done','notes')">Notes <span class="sort-ico" id="csort-done-notes"></span></th>
                   <th style="width:80px;">Delivered?</th>
                   <th style="width:110px;"></th>
                 </tr>
@@ -3191,6 +3200,26 @@
     </div>
   </div>
 
+  <!-- DEAL FILE MODAL (v8.2) — a file attached to the deal itself, with no payment or
+       paperwork entry behind it (e.g. a photo of an FMR check we're about to write). -->
+  <div class="mini-overlay" id="deal-file-overlay" onclick="if(event.target===this)closeDealFileModal()">
+    <div class="mini-modal" style="width:480px;">
+      <div class="mini-title">Add File</div>
+      <div class="form-2col">
+        <div class="form-group full"><label>Label</label>
+          <input type="text" id="dfile-label" placeholder="e.g. FMR check &mdash; Alice Nguyen" autocomplete="off">
+        </div>
+        <div class="form-group full"><label>File</label>
+          <input type="file" id="dfile-input" onchange="dealFilePicked()"
+            style="width:100%;font-size:13px;font-family:var(--font-body);color:var(--text);background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:9px 10px;box-sizing:border-box;">
+          <div id="dfile-status" style="font-size:12px;color:var(--muted);margin-top:6px;">Images and PDFs both work. Stored in Google Drive.</div>
+        </div>
+      </div>
+      <div class="mini-footer"><button class="btn btn-ghost" onclick="closeDealFileModal()">Cancel</button><button
+          class="btn btn-primary" id="dfile-save-btn" onclick="saveDealFile()">Upload &amp; Save</button></div>
+    </div>
+  </div>
+
   <div class="mini-overlay" id="reminder-overlay" onclick="if(event.target===this)closeReminderModal()">
     <div class="mini-modal" style="width:560px;max-height:90vh;display:flex;flex-direction:column;">
       <div class="mini-title" id="reminder-modal-title" style="flex-shrink:0;">Add Reminder</div>
@@ -3516,7 +3545,12 @@
         <button class="lightbox-close" onclick="closeLightbox()">×</button>
       </div>
       <div class="lightbox-body">
-        <img id="lightbox-img" src="" alt="Attachment">
+        <img id="lightbox-img" src="" alt="Attachment" onerror="lightboxPreviewFailed()">
+        <!-- Shown instead of the image for PDFs and anything Drive won't thumbnail. Without
+             this the body was a bare broken-image icon with no explanation. -->
+        <div id="lightbox-fallback" style="display:none;padding:40px 32px;text-align:center;color:var(--muted);font-size:13px;line-height:1.6;">
+          No preview available for this file.<br>Use the link below to open it in Google Drive.
+        </div>
       </div>
       <a id="lightbox-ext-link" href="#" target="_blank" class="lightbox-link">↗ Open in new tab</a>
     </div>
@@ -4286,26 +4320,42 @@
           // Keep each entry's TRUE index in d.paymentLog — removeAttachmentFromDeal() indexes the
           // raw array, not this filtered view (and not the date-sorted view the logs use).
           const atts = (d.paymentLog || []).map((p, i) => ({ p, i })).filter(x => x.p.imageUrl);
-          if (!atts.length) return '';
+          // Standalone files (v8.2) — anything not tied to a payment or paperwork entry, e.g.
+          // a photo of an FMR check we're about to write. Deleted BY ID, never by index.
+          const files = d.files || [];
+          const addBtn = isAdmin()
+            ? `<button class="card-edit-btn" onclick="openDealFileModal('${d.id}')" title="Add file"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></button>`
+            : '';
+          // Non-admins get nothing to act on, so an empty card would be pure chrome.
+          if (!atts.length && !files.length && !addBtn) return '';
           const eyeIcon = `<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
-          const rows = atts.map(({ p, i }) => {
-            const label = p.type || 'Attachment';
-            const sub = p.client ? `<span class="attachment-meta">${p.client}</span>` : '';
-            const del = isAdmin()
-              ? `<button class="attachment-del-btn" title="Remove attachment" onclick="removeAttachmentFromDeal('${d.id}',${i})">&#215;</button>`
-              : '';
-            return `<div class="attachment-item">
+          const item = (label, meta, url, delBtn) => `<div class="attachment-item">
             <span class="attachment-label" title="${label}">${label}</span>
-            ${sub}
-            <button class="attachment-view-btn" onclick="openLightbox('${p.imageUrl.replace(/'/g, "\\'")}','${label.replace(/'/g, "\\'")}')">
+            ${meta ? `<span class="attachment-meta">${meta}</span>` : ''}
+            <button class="attachment-view-btn" onclick="openLightbox('${url.replace(/'/g, "\\'")}','${label.replace(/'/g, "\\'")}')">
               ${eyeIcon} View
             </button>
-            ${del}
+            ${delBtn}
           </div>`;
-          }).join('');
+          // "from Payments" isn't decoration — removing one of these clears the image off a
+          // payment entry, which is a different act from deleting a standalone file.
+          const payRows = atts.map(({ p, i }) => item(
+            keysEsc(p.type || 'Attachment'),
+            'from Payments' + (p.client ? ' · ' + keysEsc(p.client) : ''),
+            p.imageUrl,
+            isAdmin() ? `<button class="attachment-del-btn" title="Remove attachment" onclick="removeAttachmentFromDeal('${d.id}',${i})">&#215;</button>` : ''
+          )).join('');
+          const fileRows = files.map(f => item(
+            keysEsc(f.label || 'File'),
+            f.uploadedOn ? formatDate(f.uploadedOn) : '',
+            f.url || '',
+            isAdmin() ? `<button class="attachment-del-btn" title="Delete file" onclick="removeDealFile('${d.id}','${f.id}')">&#215;</button>` : ''
+          )).join('');
+          const empty = (atts.length || files.length) ? ''
+            : '<div style="font-size:13px;color:var(--muted);padding:2px 0 4px;">No files attached.</div>';
           return `<div class="detail-card">
-          <div class="detail-card-title"><span>Attachments</span></div>
-          ${rows}
+          <div class="detail-card-title"><span>Attachments</span>${addBtn}</div>
+          ${payRows}${fileRows}${empty}
         </div>`;
         })()}
 
@@ -4525,6 +4575,8 @@
         // fields, so `checks` MUST be carried forward here or editing any deal wipes every
         // check on it. Same trap as landlords' moveInInstructions.
         checks: editingDealId ? (db.deals.find(x => x.id === editingDealId) || {}).checks || [] : [],
+        // Same trap again for v8.2 deal files — no form fields, so carry or lose them.
+        files: editingDealId ? (db.deals.find(x => x.id === editingDealId) || {}).files || [] : [],
         appfeeNeeded: gv('df-appfee-needed'), appfeeReceived: gv('df-appfee-received'), appfeeDue: gv('df-appfee-due'), appfeeNotes: gv('df-appfee-notes'),
         fmrNeeded: gv('df-fmr-needed'), fmrReceived: gv('df-fmr-received'), fmrDue: gv('df-fmr-due'), fmrNotes: gv('df-fmr-notes'), fmrDelivered: gv('df-fmr-delivered'),
         brokerNeeded: gv('df-broker-needed'), brokerReceived: gv('df-broker-received'), brokerDue: gv('df-broker-due'), brokerNotes: gv('df-broker-notes'),
@@ -5371,13 +5423,123 @@
       applyFilters(); renderStats();
     }
 
+    // ── DEAL FILES (v8.2) ──
+    // Files attached to the deal itself rather than to a payment or paperwork row. Stored in
+    // the `deals.files` JSONB column as { id, label, url, uploadedBy, uploadedOn }.
+    // ⚠️ Every entry carries its own id and removeDealFile() looks up by it — never by array
+    // index. The rendered list is a different array from d.files the moment anything filters.
+    let _dealFileDealId = null;
+
+    function openDealFileModal(dealId) {
+      _dealFileDealId = dealId;
+      document.getElementById('dfile-label').value = '';
+      document.getElementById('dfile-input').value = '';
+      setDealFileStatus('Images and PDFs both work. Stored in Google Drive.', false);
+      document.getElementById('dfile-save-btn').disabled = false;
+      document.getElementById('deal-file-overlay').classList.add('open');
+    }
+
+    function closeDealFileModal() {
+      document.getElementById('deal-file-overlay').classList.remove('open');
+      _dealFileDealId = null;
+    }
+
+    function setDealFileStatus(msg, isError) {
+      const el = document.getElementById('dfile-status');
+      if (!el) return;
+      el.textContent = msg;
+      el.style.color = isError ? 'var(--danger)' : 'var(--muted)';
+    }
+
+    // Pre-fill the label from the filename so a hurried upload still lands with something
+    // readable in the list. Only when the field is untouched — never overwrite typed text.
+    function dealFilePicked() {
+      const labelEl = document.getElementById('dfile-label');
+      const file = document.getElementById('dfile-input').files[0];
+      if (file && !labelEl.value.trim()) labelEl.value = file.name.replace(/\.[^.]+$/, '');
+    }
+
+    async function saveDealFile() {
+      const deal = (db.deals || []).find(d => d.id === _dealFileDealId);
+      if (!deal) return;
+      const file = document.getElementById('dfile-input').files[0];
+      if (!file) { setDealFileStatus('Choose a file first.', true); return; }
+      const label = document.getElementById('dfile-label').value.trim() || file.name;
+      const btn = document.getElementById('dfile-save-btn');
+      btn.disabled = true;
+      setDealFileStatus('Uploading to Google Drive…', false);
+      try {
+        // Upload first, save second. If Drive fails there's nothing to roll back — the deal
+        // row is untouched and the modal stays open with the error.
+        const url = await uploadFileToDrive(file);
+        deal.files = deal.files || [];
+        deal.files.push({
+          id: 'f_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+          label, url,
+          uploadedBy: currentUser?.email || '',
+          uploadedOn: keysToday()
+        });
+        deal.lastUpdated = new Date().toISOString();
+        await saveRecord('deals', deal);
+        closeDealFileModal();
+        openDealDetail(deal.id);
+        showToast('File attached.');
+      } catch (e) {
+        // The Drive provider_token expires after ~an hour, so this is usually a stale
+        // session rather than a real failure — say so instead of just "upload failed".
+        const msg = /token|auth|401|expired/i.test(e.message || '')
+          ? 'Google session expired — sign out and back in, then try again.'
+          : (e.message || 'Upload failed.');
+        setDealFileStatus(msg, true);
+        btn.disabled = false;
+      }
+    }
+
+    // Unlike the payment-row version this drops the whole entry, since a deal file has no
+    // record left behind once its image is gone. The file itself stays in Drive.
+    async function removeDealFile(dealId, fileId) {
+      const deal = (db.deals || []).find(d => d.id === dealId);
+      if (!deal) return;
+      const f = (deal.files || []).find(x => x.id === fileId);
+      if (!f) return;
+      if (!confirm(`Remove "${f.label || 'this file'}"?\n\nThe file stays in Google Drive — it just won’t be linked to this deal anymore.`)) return;
+      deal.files = deal.files.filter(x => x.id !== fileId);
+      deal.lastUpdated = new Date().toISOString();
+      await saveRecord('deals', deal);
+      openDealDetail(dealId);
+    }
+
+    // uploadFileToDrive() stores the /file/d/{id}/view URL — that's the Drive *viewer page*,
+    // which serves HTML, so feeding it straight to an <img> can never decode (v8.2 fix; the
+    // preview had been a broken-image icon). The thumbnail endpoint returns real image bytes
+    // for anything Drive can render, including the first page of a PDF. Non-Drive or
+    // unrenderable files fall through to lightboxPreviewFailed() via onerror.
+    function drivePreviewUrl(url) {
+      const m = /drive\.google\.com\/file\/d\/([^/?#]+)/.exec(url || '');
+      return m ? 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w1600' : url;
+    }
+
+    function lightboxPreviewFailed() {
+      const img = document.getElementById('lightbox-img');
+      const fb = document.getElementById('lightbox-fallback');
+      if (img) img.style.display = 'none';
+      if (fb) fb.style.display = 'block';
+    }
+
     function openLightbox(url, title) {
       const lb = document.getElementById('attachment-lightbox');
       const img = document.getElementById('lightbox-img');
       const ttl = document.getElementById('lightbox-title');
       const lnk = document.getElementById('lightbox-ext-link');
-      img.src = url;
+      const fb = document.getElementById('lightbox-fallback');
+      // Reset first — a previous failed preview would otherwise leave the fallback showing
+      // over a file that renders perfectly well.
+      if (fb) fb.style.display = 'none';
+      img.style.display = '';
+      img.src = drivePreviewUrl(url);
       ttl.textContent = title || 'Attachment';
+      // The external link keeps the original /view URL — that's the one that opens the real
+      // Drive page, and it's the only thing that works for a file with no preview.
       lnk.href = url;
       lb.classList.add('open');
       document.body.style.overflow = 'hidden';
@@ -7303,15 +7465,82 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
         || a.deal.id.localeCompare(b.deal.id));
     }
 
+    // ── COLUMN SORT (v8.2) ──
+    // Display-only. Export CSV and Draft Email deliberately stay on openChecksSorted() —
+    // the email's deal blocks are ordered by whatever order it's handed, so letting a
+    // screen sort reach it would reshuffle the email into something Greg didn't intend.
+    // The two tables keep independent state, and neither touches the Deals page's global
+    // sortCol/sortDir. Column keys here must match the ids on the <th> spans.
+    const checksSort = { open: { col: null, dir: null }, done: { col: null, dir: null } };
+    const CHECKS_SORT_COLS = {
+      open: ['leaseStart', 'deal', 'landlord', 'amount', 'payableTo', 'memo', 'notes'],
+      done: ['deliveredOn', 'leaseStart', 'deal', 'landlord', 'amount', 'payableTo', 'memo', 'notes']
+    };
+
+    // Amount is numeric — a string compare puts $900 above $1,200. Dates are ISO in storage
+    // so they compare correctly as strings. Blanks sort last in both directions rather than
+    // clumping at the top when descending.
+    function checksSortValue(x, col) {
+      if (col === 'amount') { const n = parseFloat(x.check.amount); return isNaN(n) ? null : n; }
+      if (col === 'leaseStart') return x.deal.leaseStart || null;
+      if (col === 'deliveredOn') return x.check.deliveredDate || null;
+      if (col === 'deal') return (x.deal.name || '').toLowerCase() || null;
+      if (col === 'landlord') return (x.deal.landlordName || '').toLowerCase() || null;
+      return (x.check[col] || '').toLowerCase() || null;
+    }
+
+    function sortChecksRows(rows, table) {
+      const { col, dir } = checksSort[table];
+      if (!col || !dir) return rows;
+      // Copy first — rows arrives straight from openChecksSorted()/filter() and an in-place
+      // sort of that array is fine today, but the copy keeps it fine if that ever changes.
+      return rows.slice().sort((a, b) => {
+        const av = checksSortValue(a, col), bv = checksSortValue(b, col);
+        if (av === null && bv === null) return 0;
+        if (av === null) return 1;
+        if (bv === null) return -1;
+        if (av < bv) return dir === 'asc' ? -1 : 1;
+        if (av > bv) return dir === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    function toggleChecksSort(table, col) {
+      const s = checksSort[table];
+      if (s.col === col) {
+        // asc → desc → off, so a third click restores the default order.
+        s.dir = s.dir === 'asc' ? 'desc' : s.dir === 'desc' ? null : 'asc';
+        if (!s.dir) s.col = null;
+      } else {
+        s.col = col;
+        s.dir = 'asc';
+      }
+      renderChecksPage();
+    }
+
+    function renderChecksSortIcons() {
+      Object.keys(CHECKS_SORT_COLS).forEach(table => {
+        const s = checksSort[table];
+        CHECKS_SORT_COLS[table].forEach(c => {
+          const icon = document.getElementById('csort-' + table + '-' + c);
+          if (!icon) return;
+          const on = c === s.col && s.dir;
+          icon.style.opacity = on ? '1' : '0.4';
+          icon.innerHTML = !on ? SORT_BOTH : (s.dir === 'asc' ? SORT_ASC : SORT_DESC);
+        });
+      });
+    }
+
     function renderChecksPage() {
       const openT = document.getElementById('checks-open-tbody');
       const doneT = document.getElementById('checks-done-tbody');
       if (!openT || !doneT) return;
       const all = allChecks();
 
-      const open = openChecksSorted();
-      const done = all.filter(x => x.check.delivered === 'Yes').sort((a, b) =>
-        (b.check.deliveredDate || '').localeCompare(a.check.deliveredDate || ''));
+      const open = sortChecksRows(openChecksSorted(), 'open');
+      const done = sortChecksRows(all.filter(x => x.check.delivered === 'Yes').sort((a, b) =>
+        (b.check.deliveredDate || '').localeCompare(a.check.deliveredDate || '')), 'done');
+      renderChecksSortIcons();
 
       openT.innerHTML = open.length ? open.map(x => checkRow(x, false)).join('')
         : `<tr class="empty-row"><td colspan="9">No checks to write.</td></tr>`;
