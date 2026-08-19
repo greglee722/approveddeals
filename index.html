@@ -1755,6 +1755,8 @@
       body * { visibility: hidden; }
       #invoice-print-area, #invoice-print-area * { visibility: visible; }
       #invoice-print-area { position: absolute; left: 0; top: 0; width: 100%; }
+      #receipt-print-area, #receipt-print-area * { visibility: visible; }
+      #receipt-print-area { position: absolute; left: 0; top: 0; width: 100%; }
     }
   </style>
   <style>
@@ -2016,7 +2018,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v7.6</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v7.7</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -3367,6 +3369,48 @@
     </div>
   </div>
 
+  <!-- RECEIPT MODAL -->
+  <div class="mini-overlay" id="receipt-overlay">
+    <div class="mini-modal" style="width:780px;max-height:92vh;overflow-y:auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div class="mini-title" style="margin-bottom:0;">Generate Receipt</div>
+        <button class="modal-close" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);" onclick="closeReceiptModal()">&#215;</button>
+      </div>
+
+      <div style="display:flex;gap:16px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap;">
+        <div class="form-group" style="flex:1;min-width:150px;margin-bottom:0;">
+          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:4px;display:block;">Date Received</label>
+          <input type="date" id="rcpt-date" oninput="renderReceiptPreview()" style="width:100%;">
+        </div>
+        <div class="form-group" style="flex:1;min-width:180px;margin-bottom:0;">
+          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:4px;display:block;">Tenant (dropped off payment)</label>
+          <select id="rcpt-tenant" onchange="renderReceiptPreview()" style="width:100%;"></select>
+        </div>
+        <div class="form-group" style="flex:1;min-width:160px;margin-bottom:0;">
+          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:4px;display:block;">Received By</label>
+          <input type="text" id="rcpt-receiver" oninput="renderReceiptPreview()" style="width:100%;">
+        </div>
+      </div>
+
+      <div style="margin-bottom:16px;">
+        <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:6px;display:block;">Payment(s) This Receipt Is For</label>
+        <div id="rcpt-types" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+      </div>
+
+      <div style="margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border);">
+        <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:6px;display:block;">Checks Received</label>
+        <div id="rcpt-rows"></div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="addReceiptRow()">+ Add Check</button>
+      </div>
+
+      <div id="receipt-print-area" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#fff;"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border);padding-top:16px;margin-top:16px;">
+        <button class="btn btn-ghost" onclick="closeReceiptModal()">Close</button>
+        <button class="btn btn-primary" onclick="printReceipt()">Print / Save as PDF</button>
+      </div>
+    </div>
+  </div>
+
   <!-- HIDDEN FILE INPUT FOR PAYMENT IMAGE UPLOAD -->
   <input type="file" id="payment-image-input" accept="image/*" style="display:none;"
     onchange="handlePaymentImageFile(this)">
@@ -4100,6 +4144,7 @@
         <button class="btn btn-ghost btn-sm" onclick="openEmailDraftModal('${d.id}')">Generate Welcome Email</button>
         <button class="btn btn-ghost btn-sm" onclick="openNCFDraftModal('${d.id}')">Generate Notarized Cosigner</button>
         <button class="btn btn-ghost btn-sm" onclick="openInvoiceModal('${d.id}')">Generate Invoice</button>
+        <button class="btn btn-ghost btn-sm" onclick="openReceiptModal('${d.id}')">Generate Receipt</button>
         <button class="btn btn-ghost btn-sm" onclick="openArchiveModal('${d.id}')">Archive</button>
         <button class="btn btn-danger btn-sm" onclick="deleteDeal('${d.id}')">Delete</button>
       ` : `
@@ -4108,6 +4153,7 @@
         <button class="btn btn-ghost btn-sm" onclick="openEmailDraftModal('${d.id}')">Generate Welcome Email</button>
         <button class="btn btn-ghost btn-sm" onclick="openNCFDraftModal('${d.id}')">Generate Notarized Cosigner</button>
         <button class="btn btn-ghost btn-sm" onclick="openInvoiceModal('${d.id}')">Generate Invoice</button>
+        <button class="btn btn-ghost btn-sm" onclick="openReceiptModal('${d.id}')">Generate Receipt</button>
       `}
     </div>
     <div class="stage-bar" style="margin-bottom:20px;">${stageBar}</div>
@@ -7665,6 +7711,215 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
           + amtLine
         + '</div>'
         + '<div style="font-size:14px;font-style:italic;color:#333;">Thank you for the opportunity to assist in the rental of your property.</div>'
+        + '</div>';
+    }
+
+    // ── RECEIPT MODAL ───────────────────────────────────────────────────────────────
+    // Print-only, by design: generating a receipt NEVER writes to paymentLog or the
+    // *Received fields. Payments are logged through openPaymentModal() alone, so a
+    // receipt printed for an already-logged check can't double-count it.
+
+    // Client-facing labels — these match the wording already used in the welcome
+    // email (generateWelcomeEmail), not the internal PAYMENT_TYPE_MAP keys.
+    const RECEIPT_TYPE_LABELS = {
+      'App Fee': 'Application Fee',
+      'FMR': 'First Month\'s Rent',
+      'Broker Fee': 'Broker Fee',
+      'LMR': 'Last Month\'s Rent',
+      'Security Deposit': 'Security Deposit',
+      'Key Fee': 'Key Deposit',
+    };
+    const RECEIPT_METHODS = ['Cashier\'s Check', 'Money Order', 'Personal Check'];
+
+    let _receiptDealId = null;
+    let receiptRows = [];
+    let receiptRowId = 0;
+    let receiptTypes = [];
+
+    function receiptNumberLabel(method) {
+      return method === 'Money Order' ? 'Money Order No.' : 'Check No.';
+    }
+
+    function receiptMoney(v) {
+      const n = parseFloat(v);
+      if (!isFinite(n)) return '$0.00';
+      return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // Remaining balance on a payment type, floored at 0 so an overpaid line can't
+    // subtract from the prefill total.
+    function receiptRemaining(deal, typeKey) {
+      const needed = parseFloat(deal[PAYMENT_NEEDED_MAP[typeKey]] || 0);
+      const received = parseFloat(deal[PAYMENT_TYPE_MAP[typeKey]] || 0);
+      return Math.max(0, (isFinite(needed) ? needed : 0) - (isFinite(received) ? received : 0));
+    }
+
+    function receiptTotal() {
+      return receiptRows.reduce(function (sum, r) {
+        const n = parseFloat(r.amount);
+        return sum + (isFinite(n) ? n : 0);
+      }, 0);
+    }
+
+    function openReceiptModal(id) {
+      const d = db.deals.find(x => x.id === id);
+      if (!d) return;
+      _receiptDealId = id;
+      receiptRows = [];
+      receiptRowId = 0;
+      receiptTypes = [];
+
+      document.getElementById('rcpt-date').value = new Date().toISOString().split('T')[0];
+      document.getElementById('rcpt-receiver').value = 'Gregory Lee';
+
+      const clients = d.clients || [];
+      const sel = document.getElementById('rcpt-tenant');
+      sel.innerHTML = (clients.length === 1 ? '' : '<option value="">Select tenant</option>')
+        + clients.map(c => '<option value="' + c.name + '">' + c.name + '</option>').join('');
+
+      addReceiptRow();
+      renderReceiptTypes();
+      renderReceiptRows();
+      renderReceiptPreview();
+      document.getElementById('receipt-overlay').classList.add('open');
+    }
+
+    function closeReceiptModal() {
+      document.getElementById('receipt-overlay').classList.remove('open');
+      _receiptDealId = null;
+      receiptRows = [];
+      receiptTypes = [];
+    }
+
+    function renderReceiptTypes() {
+      const d = db.deals.find(x => x.id === _receiptDealId);
+      if (!d) return;
+      document.getElementById('rcpt-types').innerHTML = Object.keys(RECEIPT_TYPE_LABELS).map(function (k) {
+        const checked = receiptTypes.indexOf(k) !== -1;
+        const rem = receiptRemaining(d, k);
+        const remTxt = rem > 0 ? ' <span style="color:var(--muted);font-weight:400;">(' + receiptMoney(rem) + ' due)</span>' : '';
+        return '<label style="display:inline-flex;align-items:center;gap:6px;padding:7px 11px;background:' + (checked ? 'var(--surface2)' : 'var(--bg)') + ';border:1.5px solid ' + (checked ? 'var(--text)' : 'var(--border)') + ';border-radius:7px;cursor:pointer;font-size:13px;font-weight:500;">'
+          + '<input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="toggleReceiptType(\'' + k + '\',this.checked)" style="width:14px;height:14px;cursor:pointer;">'
+          + RECEIPT_TYPE_LABELS[k] + remTxt
+          + '</label>';
+      }).join('');
+    }
+
+    // Selecting payment types PREFILLS the first check row with the sum of the
+    // remaining balances — it does not control the printed total. The sentence
+    // amount and "Total received" are always the sum of the check rows, so the two
+    // figures on a signed document can never disagree. The prefill stops the moment
+    // the user types an amount themselves (autoAmount goes false and stays false).
+    function toggleReceiptType(key, checked) {
+      const i = receiptTypes.indexOf(key);
+      if (checked && i === -1) receiptTypes.push(key);
+      if (!checked && i !== -1) receiptTypes.splice(i, 1);
+
+      const d = db.deals.find(x => x.id === _receiptDealId);
+      if (d && receiptRows.length && receiptRows[0].autoAmount) {
+        const sum = receiptTypes.reduce((s, k) => s + receiptRemaining(d, k), 0);
+        receiptRows[0].amount = sum > 0 ? sum.toFixed(2) : '';
+      }
+      renderReceiptTypes();
+      renderReceiptRows();
+      renderReceiptPreview();
+    }
+
+    function addReceiptRow() {
+      receiptRows.push({ id: ++receiptRowId, method: RECEIPT_METHODS[0], amount: '', number: '', autoAmount: true });
+      renderReceiptRows();
+      renderReceiptPreview();
+    }
+
+    function removeReceiptRow(id) {
+      receiptRows = receiptRows.filter(r => r.id !== id);
+      renderReceiptRows();
+      renderReceiptPreview();
+    }
+
+    function updateReceiptRow(id, field, val) {
+      const r = receiptRows.find(x => x.id === id);
+      if (!r) return;
+      r[field] = val;
+      if (field === 'amount') r.autoAmount = false;
+      // Re-render on method change so the number field's placeholder follows it.
+      if (field === 'method') renderReceiptRows();
+      renderReceiptPreview();
+    }
+
+    function renderReceiptRows() {
+      const inputCss = 'padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;';
+      document.getElementById('rcpt-rows').innerHTML = receiptRows.map(function (r) {
+        const opts = RECEIPT_METHODS.map(m => '<option value="' + m + '"' + (r.method === m ? ' selected' : '') + '>' + m + '</option>').join('');
+        return '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 36px;gap:8px;margin-bottom:8px;align-items:center;">'
+          + '<select onchange="updateReceiptRow(' + r.id + ',\'method\',this.value)" style="' + inputCss + '">' + opts + '</select>'
+          + '<div style="position:relative;"><span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;pointer-events:none;">$</span>'
+          + '<input type="number" step="0.01" placeholder="0.00" value="' + (r.amount || '') + '" oninput="updateReceiptRow(' + r.id + ',\'amount\',this.value)" style="' + inputCss + 'padding-left:24px;"></div>'
+          + '<input type="text" placeholder="' + receiptNumberLabel(r.method) + '" value="' + keysEsc(r.number || '') + '" oninput="updateReceiptRow(' + r.id + ',\'number\',this.value)" style="' + inputCss + '">'
+          + '<button onclick="removeReceiptRow(' + r.id + ')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:20px;padding:0;line-height:1;">&times;</button>'
+          + '</div>';
+      }).join('');
+    }
+
+    function printReceipt() {
+      const content = document.getElementById('receipt-print-area').innerHTML;
+      const w = window.open('', '_blank');
+      w.document.write('<!DOCTYPE html><html><head><title>Receipt</title></head><body style="margin:0;padding:0;">' + content + '</body></html>');
+      w.document.close();
+      w.focus();
+      w.print();
+    }
+
+    function renderReceiptPreview() {
+      const d = db.deals.find(x => x.id === _receiptDealId);
+      if (!d) return;
+
+      const dateVal = document.getElementById('rcpt-date').value;
+      const dateStr = dateVal
+        ? new Date(dateVal + 'T00:00:00').toLocaleDateString('en-US')
+        : '___________';
+      // keysEsc on everything free-text: these land in a signed document, and an
+      // unescaped & or < would render as markup rather than as the name typed.
+      const tenant = keysEsc(document.getElementById('rcpt-tenant').value) || '___________';
+      const receiver = keysEsc(document.getElementById('rcpt-receiver').value.trim()) || '___________';
+      const addrStr = keysEsc(resolveDealAddress(d));
+
+      const labels = receiptTypes.map(k => RECEIPT_TYPE_LABELS[k]);
+      let typesTxt;
+      if (!labels.length) typesTxt = 'payment';
+      else if (labels.length === 1) typesTxt = labels[0];
+      else typesTxt = labels.slice(0, -1).join(', ') + ' and ' + labels[labels.length - 1];
+
+      const totalTxt = receiptMoney(receiptTotal());
+
+      const rowsHtml = receiptRows.length
+        ? receiptRows.map(function (r) {
+            const num = r.number ? receiptNumberLabel(r.method) + ' ' + keysEsc(r.number) : receiptNumberLabel(r.method) + ' ___________';
+            return '<div>&nbsp;&nbsp;&bull;&nbsp; ' + r.method + ' &nbsp;&mdash;&nbsp; ' + receiptMoney(r.amount) + ' &nbsp;&mdash;&nbsp; ' + num + '</div>';
+          }).join('')
+        : '<div style="color:#666;">&nbsp;&nbsp;&mdash;</div>';
+
+      document.getElementById('receipt-print-area').innerHTML =
+        '<div style="font-family:Arial,sans-serif;padding:48px 56px;max-width:760px;margin:0 auto;color:#000;background:#fff;">'
+        + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:36px;">'
+          + '<img src="data:image/png;base64,' + NW_LOGO_B64 + '" style="height:64px;" alt="New Wave">'
+          + '<div style="font-size:22px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;">RECEIPT</div>'
+        + '</div>'
+        + '<div style="margin-bottom:24px;line-height:2.2;font-size:14px;">'
+          + '<div><b>Date:</b> ' + dateStr + '</div>'
+          + '<div><b>Address:</b> ' + addrStr + '</div>'
+          + '<div><b>Tenant Name:</b> ' + tenant + '</div>'
+        + '</div>'
+        + '<div style="margin:28px 0;font-size:14px;line-height:1.9;">'
+          + 'This receipt is to confirm that <b>' + typesTxt + '</b> in the sum of <b>' + totalTxt + '</b> was received on <b>' + dateStr + '</b> by <b>' + receiver + '</b>.'
+        + '</div>'
+        + '<div style="font-size:14px;font-weight:600;margin-bottom:6px;">Payment was made by:</div>'
+        + '<div style="font-size:14px;line-height:2;margin-bottom:24px;">' + rowsHtml + '</div>'
+        + '<div style="border-top:1.5px solid #000;padding-top:16px;margin-bottom:48px;font-size:14px;font-weight:700;">Total received: ' + totalTxt + '</div>'
+        + '<div style="font-size:14px;line-height:2.6;">'
+          + '<div><b>New Wave Boston Real Estate:</b> ' + receiver + '</div>'
+          + '<div><b>Signature:</b> <span style="display:inline-block;border-bottom:1px solid #000;width:320px;line-height:1;vertical-align:baseline;">&nbsp;</span></div>'
+        + '</div>'
         + '</div>';
     }
 
