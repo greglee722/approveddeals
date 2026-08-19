@@ -1199,6 +1199,28 @@
       background: var(--danger-soft);
     }
 
+    /* Same geometry as the delete button so the two sit level; neutral hover because
+       renaming isn't destructive. v8.3. */
+    .attachment-edit-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      line-height: 1;
+      padding: 2px 5px;
+      margin-left: 2px;
+      border-radius: 4px;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      transition: all 0.12s;
+    }
+
+    .attachment-edit-btn:hover {
+      color: var(--text);
+      background: var(--surface2);
+    }
+
     /* LIGHTBOX */
     #attachment-lightbox {
       display: none;
@@ -2040,7 +2062,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v8.2</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v8.3</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -3204,12 +3226,14 @@
        paperwork entry behind it (e.g. a photo of an FMR check we're about to write). -->
   <div class="mini-overlay" id="deal-file-overlay" onclick="if(event.target===this)closeDealFileModal()">
     <div class="mini-modal" style="width:480px;">
-      <div class="mini-title">Add File</div>
+      <div class="mini-title" id="dfile-modal-title">Add File</div>
       <div class="form-2col">
         <div class="form-group full"><label>Label</label>
           <input type="text" id="dfile-label" placeholder="e.g. FMR check &mdash; Alice Nguyen" autocomplete="off">
         </div>
-        <div class="form-group full"><label>File</label>
+        <!-- Hidden in rename mode: swapping the file would be a fresh upload, which is what
+             Add File is for. Renaming only touches the label. -->
+        <div class="form-group full" id="dfile-file-group"><label>File</label>
           <input type="file" id="dfile-input" onchange="dealFilePicked()"
             style="width:100%;font-size:13px;font-family:var(--font-body);color:var(--text);background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:9px 10px;box-sizing:border-box;">
           <div id="dfile-status" style="font-size:12px;color:var(--muted);margin-top:6px;">Images and PDFs both work. Stored in Google Drive.</div>
@@ -4329,26 +4353,31 @@
           // Non-admins get nothing to act on, so an empty card would be pure chrome.
           if (!atts.length && !files.length && !addBtn) return '';
           const eyeIcon = `<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
-          const item = (label, meta, url, delBtn) => `<div class="attachment-item">
+          const editIcon = `<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+          const item = (label, meta, url, editBtn, delBtn) => `<div class="attachment-item">
             <span class="attachment-label" title="${label}">${label}</span>
             ${meta ? `<span class="attachment-meta">${meta}</span>` : ''}
             <button class="attachment-view-btn" onclick="openLightbox('${url.replace(/'/g, "\\'")}','${label.replace(/'/g, "\\'")}')">
               ${eyeIcon} View
             </button>
-            ${delBtn}
+            ${editBtn}${delBtn}
           </div>`;
           // "from Payments" isn't decoration — removing one of these clears the image off a
           // payment entry, which is a different act from deleting a standalone file.
+          // No rename pencil on these — their label IS the payment's `type`, which belongs to
+          // the payment entry and is edited from the Payments Log, not from here.
           const payRows = atts.map(({ p, i }) => item(
             keysEsc(p.type || 'Attachment'),
             'from Payments' + (p.client ? ' · ' + keysEsc(p.client) : ''),
             p.imageUrl,
+            '',
             isAdmin() ? `<button class="attachment-del-btn" title="Remove attachment" onclick="removeAttachmentFromDeal('${d.id}',${i})">&#215;</button>` : ''
           )).join('');
           const fileRows = files.map(f => item(
             keysEsc(f.label || 'File'),
             f.uploadedOn ? formatDate(f.uploadedOn) : '',
             f.url || '',
+            isAdmin() ? `<button class="attachment-edit-btn" title="Rename file" onclick="openDealFileModal('${d.id}','${f.id}')">${editIcon}</button>` : '',
             isAdmin() ? `<button class="attachment-del-btn" title="Delete file" onclick="removeDealFile('${d.id}','${f.id}')">&#215;</button>` : ''
           )).join('');
           const empty = (atts.length || files.length) ? ''
@@ -5429,19 +5458,33 @@
     // ⚠️ Every entry carries its own id and removeDealFile() looks up by it — never by array
     // index. The rendered list is a different array from d.files the moment anything filters.
     let _dealFileDealId = null;
+    // Set only in rename mode (v8.3). Same add-or-edit-in-one-modal shape as
+    // openCheckModal(dealId, checkId) and openReminderModal(dealId, reminderId).
+    let _dealFileEditId = null;
 
-    function openDealFileModal(dealId) {
+    function openDealFileModal(dealId, fileId) {
       _dealFileDealId = dealId;
-      document.getElementById('dfile-label').value = '';
+      _dealFileEditId = fileId || null;
+      const deal = (db.deals || []).find(d => d.id === dealId);
+      const existing = _dealFileEditId ? (deal?.files || []).find(f => f.id === _dealFileEditId) : null;
+      // A rename whose file has vanished (deleted in another tab) would otherwise save a
+      // brand-new entry with no upload behind it.
+      if (_dealFileEditId && !existing) { showToast('That file is no longer on this deal.'); return; }
+      document.getElementById('dfile-modal-title').textContent = existing ? 'Rename File' : 'Add File';
+      document.getElementById('dfile-file-group').style.display = existing ? 'none' : '';
+      document.getElementById('dfile-save-btn').textContent = existing ? 'Save' : 'Upload & Save';
+      document.getElementById('dfile-label').value = existing ? (existing.label || '') : '';
       document.getElementById('dfile-input').value = '';
-      setDealFileStatus('Images and PDFs both work. Stored in Google Drive.', false);
+      setDealFileStatus(existing ? '' : 'Images and PDFs both work. Stored in Google Drive.', false);
       document.getElementById('dfile-save-btn').disabled = false;
       document.getElementById('deal-file-overlay').classList.add('open');
+      document.getElementById('dfile-label').focus();
     }
 
     function closeDealFileModal() {
       document.getElementById('deal-file-overlay').classList.remove('open');
       _dealFileDealId = null;
+      _dealFileEditId = null;
     }
 
     function setDealFileStatus(msg, isError) {
@@ -5462,20 +5505,54 @@
     async function saveDealFile() {
       const deal = (db.deals || []).find(d => d.id === _dealFileDealId);
       if (!deal) return;
+
+      // Rename branch — no file picker, no Drive round trip. Looked up by id, and re-checked
+      // here rather than trusting the id captured when the modal opened.
+      if (_dealFileEditId) {
+        const entry = (deal.files || []).find(f => f.id === _dealFileEditId);
+        if (!entry) { setDealFileStatus('That file is no longer on this deal.', true); return; }
+        const newLabel = document.getElementById('dfile-label').value.trim();
+        if (!newLabel) { setDealFileStatus('Give the file a label.', true); return; }
+        if (newLabel === entry.label) { closeDealFileModal(); return; }
+        const btn = document.getElementById('dfile-save-btn');
+        btn.disabled = true;
+        // Roll back on failure. `deal` is the live db object, so leaving the new label on it
+        // after a failed write would show a rename that never reached Supabase.
+        const prevLabel = entry.label, prevUpdated = deal.lastUpdated;
+        try {
+          entry.label = newLabel;
+          deal.lastUpdated = new Date().toISOString();
+          await saveRecord('deals', deal);
+          closeDealFileModal();
+          openDealDetail(deal.id);
+          showToast('File renamed.');
+        } catch (e) {
+          entry.label = prevLabel;
+          deal.lastUpdated = prevUpdated;
+          setDealFileStatus(e.message || 'Save failed.', true);
+          btn.disabled = false;
+        }
+        return;
+      }
+
       const file = document.getElementById('dfile-input').files[0];
       if (!file) { setDealFileStatus('Choose a file first.', true); return; }
       const label = document.getElementById('dfile-label').value.trim() || file.name;
       const btn = document.getElementById('dfile-save-btn');
       btn.disabled = true;
       setDealFileStatus('Uploading to Google Drive…', false);
+      // Tracked so the catch knows whether the entry made it onto the live deal object and
+      // needs unwinding — a Drive failure happens before the push, a Supabase failure after.
+      let newId = null;
+      const prevUpdated = deal.lastUpdated;
       try {
         // Upload first, save second. If Drive fails there's nothing to roll back — the deal
         // row is untouched and the modal stays open with the error.
         const url = await uploadFileToDrive(file);
         deal.files = deal.files || [];
+        newId = 'f_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
         deal.files.push({
-          id: 'f_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
-          label, url,
+          id: newId, label, url,
           uploadedBy: currentUser?.email || '',
           uploadedOn: keysToday()
         });
@@ -5485,6 +5562,10 @@
         openDealDetail(deal.id);
         showToast('File attached.');
       } catch (e) {
+        // Unwind the optimistic push so the card can't show a file Supabase never took. The
+        // Drive upload itself stands — that file is already in Drive, just unreferenced.
+        if (newId) deal.files = deal.files.filter(f => f.id !== newId);
+        deal.lastUpdated = prevUpdated;
         // The Drive provider_token expires after ~an hour, so this is usually a stale
         // session rather than a real failure — say so instead of just "upload failed".
         const msg = /token|auth|401|expired/i.test(e.message || '')
