@@ -2024,7 +2024,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v7.8</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v7.9</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -6488,9 +6488,26 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
     // ══════════════════════════════════════
     // HASH-BASED PAGE NAVIGATION
     // ══════════════════════════════════════
-    // NOTE: 'checks' and 'keys' are absent — pre-existing, so #checks on a cold load
-    // silently lands on the dashboard. Flagged to Greg 2026-08-19, not changed here.
-    const VALID_PAGES = ['dashboard', 'payments', 'delivery', 'clients', 'addresses', 'landlords', 'agents', 'archived', 'drafts', 'requests', 'reminders'];
+    const VALID_PAGES = ['dashboard', 'payments', 'delivery', 'clients', 'addresses', 'landlords', 'agents', 'archived', 'drafts', 'requests', 'reminders', 'checks', 'keys'];
+
+    // Pages whose nav tab applyRolePermissions() hides from agents. The hash router bypasses
+    // the nav entirely, so without this check an agent reaches them just by typing or
+    // bookmarking the URL — already true of 'requests' before 'checks' joined the list above.
+    // Safe to call here: applyRolePermissions() runs before restoreFromHash() in startApp(),
+    // so currentUser is populated by the time either router path evaluates this.
+    const ADMIN_ONLY_PAGES = ['checks', 'requests'];
+
+    function routeToPage(hash) {
+      if (!VALID_PAGES.includes(hash)) return;
+      if (ADMIN_ONLY_PAGES.includes(hash) && !isAdmin()) {
+        // Send them somewhere real and correct the address bar, rather than leaving the URL
+        // pointing at a page that never opened. replaceState, so Back doesn't bounce here.
+        history.replaceState(null, '', '#dashboard');
+        showPage('dashboard', null, true);
+        return;
+      }
+      showPage(hash, null, true);
+    }
 
     function restoreFromHash() {
       const hash = location.hash.slice(1); // remove #
@@ -6501,9 +6518,7 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
         if (deal) { showPage('dashboard', null, true); openDealDetail(id); }
         return;
       }
-      if (VALID_PAGES.includes(hash)) {
-        showPage(hash, null, true);
-      }
+      routeToPage(hash);
     }
 
     window.addEventListener('popstate', () => {
@@ -6519,9 +6534,7 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
         if (deal) { showPage('dashboard', null, true); openDealDetail(id); }
         return;
       }
-      if (VALID_PAGES.includes(hash)) {
-        showPage(hash, null, true);
-      }
+      routeToPage(hash);
     });
 
     // ══════════════════════════════════════
