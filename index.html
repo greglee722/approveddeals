@@ -2062,7 +2062,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v8.4</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v8.5</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -4204,6 +4204,7 @@
       tbody.innerHTML = rows.map(d => {
         const issues = getDeliveryIssues(d);
         const stage = d.stage || 0;
+        const deliverBtn = isAdmin() ? `<button class="btn btn-ghost btn-xs" style="margin-right:6px;" onclick="markAllDelivered('${d.id}')" title="Mark every pending delivery on this deal as delivered">Mark Delivered</button>` : '';
         return `<tr onclick="openDealDetail('${d.id}')" style="cursor:pointer;">
       <td style="font-weight:500;text-decoration:underline;text-underline-offset:3px;">${d.name || '—'}</td>
       <td>${d.landlordName || '—'}</td>
@@ -4211,9 +4212,75 @@
       <td>${formatDate(d.leaseStart)}</td>
       <td><div class="issue-list">${issues.map(i => `<span class="issue-tag delivery">${i}</span>`).join('')}</div></td>
       <td><span class="badge badge-stage-${stage}">${STAGE_NAMES[stage]}</span></td>
-      <td onclick="event.stopPropagation()"><button class="btn btn-ghost btn-xs" onclick="editDeal('${d.id}')">Edit</button></td>
+      <td onclick="event.stopPropagation()" style="white-space:nowrap;">${deliverBtn}<button class="btn btn-ghost btn-xs" onclick="editDeal('${d.id}')">Edit</button></td>
     </tr>`;
       }).join('');
+    }
+
+    // ── QUICK DELIVER (v8.5) ──
+    // One-click clear of every item the Delivery Needed tab currently flags on a single deal.
+    // ⚠️ Driven by getDeliveryIssues(), NOT by the six *Delivered fields directly. An item is
+    // only flagged once it is FULLY COLLECTED (received >= needed > 0), so this can never mark
+    // something delivered that we have not actually received. It writes no payment amounts.
+    // ⚠️ Admin only. Every row on this tab is status === 'active', and editDeal() routes an
+    // agent on an active deal into the Edit Request modal instead of writing. A button open to
+    // all roles would hand agents a direct write and bypass that approval path entirely.
+    const DELIVERY_ISSUE_FIELD = {
+      'FMR': 'fmrDelivered',
+      'LMR': 'lmrDelivered',
+      'Sec Dep': 'secdepDelivered',
+      'Key Fee': 'keyfeeDelivered',
+      'NCF': 'ncfDelivered',
+      'Signed Lease': 'leaseDelivered',
+    };
+
+    async function markAllDelivered(dealId) {
+      if (!isAdmin()) return;
+      const deal = db.deals.find(d => d.id === dealId);
+      if (!deal) return;
+      // Re-read the issues here rather than trusting what the row was rendered with — another
+      // tab may have delivered some of them since this table was drawn.
+      const issues = getDeliveryIssues(deal);
+      if (!issues.length) { renderDeliveryTable(); return; }
+      const fields = issues.map(i => DELIVERY_ISSUE_FIELD[i]).filter(Boolean);
+      if (!confirm('Mark as delivered on ' + (deal.name || 'this deal') + '?\n\n' + issues.join('\n') + '\n\nNo payment amount is changed.')) return;
+
+      // Roll back on a failed write. `deal` is the live db object, so leaving Yes on it after a
+      // failed upsert would show deliveries that never reached Supabase, with nothing to
+      // correct it short of a reload.
+      const prev = {};
+      fields.forEach(f => { prev[f] = deal[f]; });
+      const prevStage = deal.stage, prevUpdated = deal.lastUpdated;
+
+      fields.forEach(f => { deal[f] = 'Yes'; });
+      // computeAutoStage() only runs from autoStage(), which is wired to the deal-modal form
+      // fields — nothing recomputes the stage outside that modal. Without this the deal drops
+      // off this tab still reading "Approved Deal" in the Stage column it just left.
+      // ⚠️ A deal at Closed keeps that stage. BOTH flags are checked because neither alone is
+      // reliable: `stageOverride` is a TEXT column, so a deal read from Supabase carries the
+      // STRING '2' and a `!== 2` number compare would miss it (the bug autoStage() still has,
+      // flagged 2026-08-28), and older rows can sit at stage 2 with no override set at all.
+      // computeAutoStage() only ever returns 0 or 1, so either miss silently demotes a closed deal.
+      if (String(deal.stageOverride) !== '2' && String(deal.stage || 0) !== '2') deal.stage = computeAutoStage(deal);
+      deal.lastUpdated = new Date().toISOString();
+
+      // ⚠️ Upserted directly, NOT through saveRecord() — saveRecord() catches its own error and
+      // returns normally, so a try/catch around it never fires and the rollback below would be
+      // dead code (the same flaw the v8.3 saveDealFile() rollback still carries).
+      showSync('Saving…', 'loading');
+      const { error } = await sb.from('deals').upsert(deal);
+      if (error) {
+        Object.keys(prev).forEach(f => { deal[f] = prev[f]; });
+        deal.stage = prevStage; deal.lastUpdated = prevUpdated;
+        showSync('Save failed: ' + error.message, 'error');
+        setTimeout(hideSync, 4000);
+        console.error(error);
+        renderDeliveryTable();
+        return;
+      }
+      showSync('Saved ✓', 'success');
+      setTimeout(hideSync, 1500);
+      renderDeliveryTable(); applyFilters(); renderStats();
     }
 
     // ══════════════════════════════════════
