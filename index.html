@@ -2062,7 +2062,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v8.8</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v8.9</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -2691,20 +2691,20 @@
         </div>
         <div class="card">
           <div style="overflow-x:auto;">
-            <table style="min-width:1140px;">
+            <table style="min-width:1260px;">
               <thead>
                 <tr>
-                  <th style="width:100px;">Lease Start</th>
-                  <th style="width:150px;">Deal</th>
-                  <th style="width:130px;">Landlord</th>
-                  <th style="width:130px;">Address</th>
-                  <th style="width:110px;">Agent</th>
-                  <th style="width:100px;">Commission Owed</th>
-                  <th style="width:100px;">Received</th>
-                  <th style="width:90px;">Invoice Sent</th>
-                  <th style="width:100px;">Since Sent / Paid</th>
-                  <th>Notes</th>
-                  <th style="width:60px;">Paid?</th>
+                  <th style="width:90px;">Lease Start</th>
+                  <th style="width:140px;">Deal</th>
+                  <th style="width:120px;">Landlord</th>
+                  <th style="width:140px;">Address</th>
+                  <th style="width:100px;">Agent</th>
+                  <th style="width:95px;">Commission Owed</th>
+                  <th style="width:90px;">Received</th>
+                  <th style="width:85px;">Invoice Sent</th>
+                  <th style="width:80px;">Since Sent</th>
+                  <th style="width:230px;">Notes</th>
+                  <th style="width:55px;">Paid?</th>
                 </tr>
               </thead>
               <tbody id="invoices-tbody"></tbody>
@@ -7941,8 +7941,18 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
       <td>${formatCur(d.landlordCommissionReceived)}</td>
       <td style="font-size:12.5px;">${d.invoiceSentDate ? formatDate(d.invoiceSentDate) : '—'}</td>
       <td style="font-size:12.5px;">${sinceCell}</td>
-      <td style="font-size:12.5px;white-space:pre-wrap;">${keysEsc(d.invoiceNotes || '—')}</td>
+      <td><textarea onchange="saveInvoiceField('${d.id}','invoiceNotes',this.value)" placeholder="Notes…" style="width:100%;height:52px;font-size:12.5px;padding:6px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-body);resize:vertical;box-sizing:border-box;">${keysEsc(d.invoiceNotes || '')}</textarea></td>
       <td style="text-align:center;"><input type="checkbox" ${d.invoicePaidDate ? 'checked' : ''} onchange="toggleLandlordInvoicePaid('${d.id}',this.checked)" style="width:16px;height:16px;cursor:pointer;"></td></tr>`;
+    }
+
+    // Mirrors saveKeyField() on Key Instructions — writes straight to Supabase without
+    // re-rendering, so typing in the Notes textarea never loses focus mid-edit.
+    async function saveInvoiceField(dealId, field, value) {
+      const deal = (db.deals || []).find(d => d.id === dealId);
+      if (!deal) return;
+      deal[field] = value;
+      deal.lastUpdated = new Date().toISOString();
+      await saveRecord('deals', deal);
     }
 
     // ⚠️ Named distinctly from the unrelated `toggleInvoicePaid()` (no-arg) on the Generate
