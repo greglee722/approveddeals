@@ -2062,7 +2062,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v8.6</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v8.7</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -2691,19 +2691,20 @@
         </div>
         <div class="card">
           <div style="overflow-x:auto;">
-            <table style="min-width:1000px;">
+            <table style="min-width:1140px;">
               <thead>
                 <tr>
                   <th style="width:100px;">Lease Start</th>
-                  <th style="width:170px;">Deal</th>
-                  <th style="width:150px;">Landlord</th>
-                  <th style="width:150px;">Address</th>
-                  <th style="width:120px;">Agent</th>
-                  <th style="width:110px;">Commission Owed</th>
-                  <th style="width:110px;">Received</th>
-                  <th style="width:100px;">Invoice Sent</th>
-                  <th style="width:110px;">Since Sent / Paid</th>
-                  <th style="width:70px;">Paid?</th>
+                  <th style="width:150px;">Deal</th>
+                  <th style="width:130px;">Landlord</th>
+                  <th style="width:130px;">Address</th>
+                  <th style="width:110px;">Agent</th>
+                  <th style="width:100px;">Commission Owed</th>
+                  <th style="width:100px;">Received</th>
+                  <th style="width:90px;">Invoice Sent</th>
+                  <th style="width:100px;">Since Sent / Paid</th>
+                  <th>Notes</th>
+                  <th style="width:60px;">Paid?</th>
                 </tr>
               </thead>
               <tbody id="invoices-tbody"></tbody>
@@ -3077,6 +3078,8 @@
               </div>
               <div class="form-group"><label>Invoice Sent Date</label><input type="date" id="df-invoice-sent-date"></div>
               <div class="form-group"><label>Invoice Paid Date</label><input type="date" id="df-invoice-paid-date"></div>
+              <div class="form-group full"><label>Invoice Notes</label><textarea id="df-invoice-notes"
+                  style="min-height:80px;"></textarea></div>
             </div>
           </div>
         </div>
@@ -4586,6 +4589,7 @@
         <div class="detail-row"><span class="detail-key">Received</span><span class="detail-val">${formatCur(d.landlordCommissionReceived)}</span></div>
         <div class="detail-row"><span class="detail-key">Invoice Sent</span><span class="detail-val">${formatDate(d.invoiceSentDate)}</span></div>
         ${statusRow}
+        ${d.invoiceNotes ? `<div style="margin-top:6px;font-size:12px;color:var(--muted);">${d.invoiceNotes}</div>` : ''}
       </div>`;
         })() : ''}
       ${parseFloat(d.lmrNeeded || 0) > 0 ? `<div class="detail-card" style="${owes(d.lmrNeeded, d.lmrReceived)}">
@@ -4674,7 +4678,7 @@
         'df-commission', 'df-additional-info', 'df-appfee-needed', 'df-appfee-received', 'df-appfee-due', 'df-appfee-notes',
         'df-fmr-needed', 'df-fmr-received', 'df-fmr-due', 'df-fmr-notes', 'df-fmr-delivered',
         'df-broker-needed', 'df-broker-received', 'df-broker-due', 'df-broker-notes',
-        'df-landlord-commission-owed', 'df-landlord-commission-received', 'df-invoice-sent-date', 'df-invoice-paid-date',
+        'df-landlord-commission-owed', 'df-landlord-commission-received', 'df-invoice-sent-date', 'df-invoice-paid-date', 'df-invoice-notes',
         'df-lmr-needed', 'df-lmr-received', 'df-lmr-due', 'df-lmr-notes', 'df-lmr-delivered',
         'df-secdep-needed', 'df-secdep-received', 'df-secdep-due', 'df-secdep-notes', 'df-secdep-delivered',
         'df-keyfee-needed', 'df-keyfee-received', 'df-keyfee-due', 'df-keyfee-notes', 'df-keyfee-delivered',
@@ -4698,7 +4702,7 @@
         setV('df-broker-needed', d.brokerNeeded); setV('df-broker-received', d.brokerReceived); setV('df-broker-due', d.brokerDue); setV('df-broker-notes', d.brokerNotes);
         document.getElementById('df-landlord-commission-required').checked = d.landlordCommissionRequired === 'Yes';
         setV('df-landlord-commission-owed', d.landlordCommissionOwed); setV('df-landlord-commission-received', d.landlordCommissionReceived);
-        setV('df-invoice-sent-date', d.invoiceSentDate); setV('df-invoice-paid-date', d.invoicePaidDate);
+        setV('df-invoice-sent-date', d.invoiceSentDate); setV('df-invoice-paid-date', d.invoicePaidDate); setV('df-invoice-notes', d.invoiceNotes);
         handleLandlordCommissionRequired();
         setV('df-lmr-needed', d.lmrNeeded); setV('df-lmr-received', d.lmrReceived); setV('df-lmr-due', d.lmrDue); setV('df-lmr-notes', d.lmrNotes); setV('df-lmr-delivered', d.lmrDelivered);
         setV('df-secdep-needed', d.secdepNeeded); setV('df-secdep-received', d.secdepReceived); setV('df-secdep-due', d.secdepDue); setV('df-secdep-notes', d.secdepNotes); setV('df-secdep-delivered', d.secdepDelivered);
@@ -4795,7 +4799,7 @@
         brokerNeeded: gv('df-broker-needed'), brokerReceived: gv('df-broker-received'), brokerDue: gv('df-broker-due'), brokerNotes: gv('df-broker-notes'),
         landlordCommissionRequired: document.getElementById('df-landlord-commission-required').checked ? 'Yes' : '',
         landlordCommissionOwed: gv('df-landlord-commission-owed'), landlordCommissionReceived: gv('df-landlord-commission-received'),
-        invoiceSentDate: gv('df-invoice-sent-date'), invoicePaidDate: gv('df-invoice-paid-date'),
+        invoiceSentDate: gv('df-invoice-sent-date'), invoicePaidDate: gv('df-invoice-paid-date'), invoiceNotes: gv('df-invoice-notes'),
         lmrNeeded: gv('df-lmr-needed'), lmrReceived: gv('df-lmr-received'), lmrDue: gv('df-lmr-due'), lmrNotes: gv('df-lmr-notes'), lmrDelivered: gv('df-lmr-delivered'),
         secdepNeeded: gv('df-secdep-needed'), secdepReceived: gv('df-secdep-received'), secdepDue: gv('df-secdep-due'), secdepNotes: gv('df-secdep-notes'), secdepDelivered: gv('df-secdep-delivered'),
         keyfeeNeeded: gv('df-keyfee-needed'), keyfeeReceived: gv('df-keyfee-received'), keyfeeDue: gv('df-keyfee-due'), keyfeeNotes: gv('df-keyfee-notes'), keyfeeDelivered: gv('df-keyfee-delivered'),
@@ -7892,7 +7896,7 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
         return db_ - da;
       });
       tbody.innerHTML = rows.length ? rows.map(invoiceRow).join('')
-        : `<tr class="empty-row"><td colspan="10">No deals with a landlord commission on file.</td></tr>`;
+        : `<tr class="empty-row"><td colspan="11">No deals with a landlord commission on file.</td></tr>`;
     }
 
     function invoiceRow(d) {
@@ -7911,6 +7915,7 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
       <td>${formatCur(d.landlordCommissionReceived)}</td>
       <td style="font-size:12.5px;">${d.invoiceSentDate ? formatDate(d.invoiceSentDate) : '—'}</td>
       <td style="font-size:12.5px;">${sinceCell}</td>
+      <td style="font-size:12.5px;white-space:pre-wrap;">${keysEsc(d.invoiceNotes || '—')}</td>
       <td style="text-align:center;"><input type="checkbox" ${d.invoicePaidDate ? 'checked' : ''} onchange="toggleLandlordInvoicePaid('${d.id}',this.checked)" style="width:16px;height:16px;cursor:pointer;"></td></tr>`;
     }
 
