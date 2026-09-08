@@ -2062,7 +2062,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v8.9</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v9.0</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -7876,14 +7876,15 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
     // ══════════════════════════════════════
     // LANDLORD INVOICES
     // ══════════════════════════════════════
-    // Every deal with landlordCommissionRequired==='Yes', regardless of whether an invoice
-    // has been sent yet — Greg wants to see what's owed even before the first invoice goes
-    // out, not just what's already pending payment. Grouped by landlord (v8.8, Greg's
-    // request) — within each landlord's group, not-yet-sent first (needs action), then
-    // sent-and-unpaid by days-since-sent descending (most overdue on top), then paid last
-    // by paid date descending. Each landlord's group ends with a subtotal row.
+    // Outstanding only (v9.0, Greg's call, 2026-09-08) — a deal drops off this tab the
+    // moment invoicePaidDate is set via the Mark Paid checkbox. Every remaining deal with
+    // landlordCommissionRequired==='Yes' still shows regardless of whether an invoice has
+    // been sent yet — Greg wants to see what's owed even before the first invoice goes out,
+    // not just what's already pending payment. Grouped by landlord (v8.8) — within each
+    // landlord's group, not-yet-sent first (needs action), then sent by days-since-sent
+    // descending (most overdue on top). Each landlord's group ends with a subtotal row.
     function invoiceVisibleDeals() {
-      return (db.deals || []).filter(d => d.status !== 'archived' && d.landlordCommissionRequired === 'Yes');
+      return (db.deals || []).filter(d => d.status !== 'archived' && d.landlordCommissionRequired === 'Yes' && !d.invoicePaidDate);
     }
 
     function renderInvoicesPage() {
@@ -7892,8 +7893,6 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
       const rows = invoiceVisibleDeals().slice().sort((a, b) => {
         const la = (a.landlordName || '').toLowerCase(), lb = (b.landlordName || '').toLowerCase();
         if (la !== lb) return la.localeCompare(lb);
-        if (!!a.invoicePaidDate !== !!b.invoicePaidDate) return a.invoicePaidDate ? 1 : -1;
-        if (a.invoicePaidDate && b.invoicePaidDate) return b.invoicePaidDate.localeCompare(a.invoicePaidDate);
         if (!!a.invoiceSentDate !== !!b.invoiceSentDate) return a.invoiceSentDate ? 1 : -1;
         const da = daysSinceInvoiceSent(a) ?? -1, db_ = daysSinceInvoiceSent(b) ?? -1;
         return db_ - da;
@@ -7926,11 +7925,9 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
     }
 
     function invoiceRow(d) {
+      // No Paid branch here — a paid deal never reaches this row, see invoiceVisibleDeals().
       const daysSince = daysSinceInvoiceSent(d);
-      let sinceCell;
-      if (d.invoicePaidDate) sinceCell = `Paid ${formatDate(d.invoicePaidDate)}`;
-      else if (daysSince !== null) sinceCell = `${daysSince} day${daysSince === 1 ? '' : 's'}`;
-      else sinceCell = '—';
+      const sinceCell = daysSince !== null ? `${daysSince} day${daysSince === 1 ? '' : 's'}` : '—';
       return `<tr>
       <td style="font-size:12.5px;">${d.leaseStart ? formatDate(d.leaseStart) : '—'}</td>
       <td style="font-weight:500;"><span onclick="openDealDetail('${d.id}')" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;">${keysEsc(d.name || 'Untitled Deal')}</span></td>
