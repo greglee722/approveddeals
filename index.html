@@ -2062,7 +2062,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v8.7</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v8.8</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -7878,9 +7878,10 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
     // ══════════════════════════════════════
     // Every deal with landlordCommissionRequired==='Yes', regardless of whether an invoice
     // has been sent yet — Greg wants to see what's owed even before the first invoice goes
-    // out, not just what's already pending payment. Sort: not-yet-sent first (needs action),
-    // then sent-and-unpaid by days-since-sent descending (most overdue on top), then paid
-    // last by paid date descending.
+    // out, not just what's already pending payment. Grouped by landlord (v8.8, Greg's
+    // request) — within each landlord's group, not-yet-sent first (needs action), then
+    // sent-and-unpaid by days-since-sent descending (most overdue on top), then paid last
+    // by paid date descending. Each landlord's group ends with a subtotal row.
     function invoiceVisibleDeals() {
       return (db.deals || []).filter(d => d.status !== 'archived' && d.landlordCommissionRequired === 'Yes');
     }
@@ -7889,14 +7890,39 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
       const tbody = document.getElementById('invoices-tbody');
       if (!tbody) return;
       const rows = invoiceVisibleDeals().slice().sort((a, b) => {
+        const la = (a.landlordName || '').toLowerCase(), lb = (b.landlordName || '').toLowerCase();
+        if (la !== lb) return la.localeCompare(lb);
         if (!!a.invoicePaidDate !== !!b.invoicePaidDate) return a.invoicePaidDate ? 1 : -1;
         if (a.invoicePaidDate && b.invoicePaidDate) return b.invoicePaidDate.localeCompare(a.invoicePaidDate);
         if (!!a.invoiceSentDate !== !!b.invoiceSentDate) return a.invoiceSentDate ? 1 : -1;
         const da = daysSinceInvoiceSent(a) ?? -1, db_ = daysSinceInvoiceSent(b) ?? -1;
         return db_ - da;
       });
-      tbody.innerHTML = rows.length ? rows.map(invoiceRow).join('')
-        : `<tr class="empty-row"><td colspan="11">No deals with a landlord commission on file.</td></tr>`;
+      if (!rows.length) {
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="11">No deals with a landlord commission on file.</td></tr>`;
+        return;
+      }
+      let html = '';
+      let groupLandlord = null, groupTotal = 0;
+      const flushGroup = () => {
+        if (groupLandlord === null) return;
+        html += invoiceSubtotalRow(groupLandlord, groupTotal);
+      };
+      rows.forEach(d => {
+        const landlord = d.landlordName || '—';
+        if (landlord !== groupLandlord) { flushGroup(); groupLandlord = landlord; groupTotal = 0; }
+        groupTotal += parseFloat(d.landlordCommissionOwed || 0);
+        html += invoiceRow(d);
+      });
+      flushGroup();
+      tbody.innerHTML = html;
+    }
+
+    function invoiceSubtotalRow(landlordName, total) {
+      return `<tr style="background:var(--surface2);font-weight:600;">
+      <td colspan="5" style="text-align:right;padding-right:12px;">${keysEsc(landlordName)} — Total Commission Owed:</td>
+      <td>${formatCur(total)}</td>
+      <td colspan="5"></td></tr>`;
     }
 
     function invoiceRow(d) {
