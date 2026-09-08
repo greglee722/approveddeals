@@ -2062,7 +2062,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v8.5</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v8.6</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -2157,6 +2157,17 @@
               Edit Requests
               <span id="requests-badge"
                 style="background:#c0392b;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:auto;display:none;"></span>
+            </button>
+            <button class="hamburger-item" id="nav-invoices" data-page="invoices"
+              onclick="showPage('invoices',document.querySelector('[data-page=invoices]'));toggleHamburger()"
+              style="display:none;">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <path d="M14 2v6h6" />
+                <line x1="8" y1="13" x2="16" y2="13" />
+                <line x1="8" y1="17" x2="12" y2="17" />
+              </svg>
+              Landlord Invoices
             </button>
           </div>
         </div>
@@ -2258,6 +2269,16 @@
               <div class="stat-label">Missing Broker Fee</div>
               <div class="stat-val warn" id="stat-broker">0</div>
               <div class="stat-sub">broker needed &gt; received</div>
+            </div>
+            <div class="stat-card clickable" id="stat-invoicespending-card" onclick="toggleStatFilter('invoicespending')">
+              <div class="stat-label">Invoices Pending</div>
+              <div class="stat-val warn" id="stat-invoicespending">0</div>
+              <div class="stat-sub">sent to landlord, not yet paid</div>
+            </div>
+            <div class="stat-card clickable" id="stat-invoicepastdue-card" onclick="toggleStatFilter('invoicepastdue')">
+              <div class="stat-label">Past Due Invoices &gt; 15 Days</div>
+              <div class="stat-val warn" id="stat-invoicepastdue">0</div>
+              <div class="stat-sub">sent 15+ days ago, unpaid</div>
             </div>
           </div>
           <div class="card">
@@ -2661,6 +2682,36 @@
         </div>
       </div>
 
+      <div class="page" id="page-invoices">
+        <div class="page-hdr">
+          <div>
+            <div class="page-title">Landlord Invoices</div>
+            <div class="page-subtitle">Commission invoices sent to landlords &mdash; what we're waiting on to get paid</div>
+          </div>
+        </div>
+        <div class="card">
+          <div style="overflow-x:auto;">
+            <table style="min-width:1000px;">
+              <thead>
+                <tr>
+                  <th style="width:100px;">Lease Start</th>
+                  <th style="width:170px;">Deal</th>
+                  <th style="width:150px;">Landlord</th>
+                  <th style="width:150px;">Address</th>
+                  <th style="width:120px;">Agent</th>
+                  <th style="width:110px;">Commission Owed</th>
+                  <th style="width:110px;">Received</th>
+                  <th style="width:100px;">Invoice Sent</th>
+                  <th style="width:110px;">Since Sent / Paid</th>
+                  <th style="width:70px;">Paid?</th>
+                </tr>
+              </thead>
+              <tbody id="invoices-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <div class="page" id="page-reminders">
         <div class="page-hdr">
           <div>
@@ -3011,6 +3062,22 @@
             </div>
             <div class="form-group"><label>Broker Fee Notes</label><textarea id="df-broker-notes"
                 style="min-height:110px;"></textarea></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+            <input type="checkbox" id="df-landlord-commission-required" onchange="handleLandlordCommissionRequired()" style="width:16px;height:16px;cursor:pointer;">
+            <label for="df-landlord-commission-required" style="font-size:13px;font-weight:500;cursor:pointer;">Landlord owes a commission?</label>
+          </div>
+          <div id="landlord-commission-section" style="display:none;margin-top:10px;">
+            <div class="form-2col">
+              <div class="form-group"><label>Commission Owed</label>
+                <div class="currency-wrap"><input type="number" id="df-landlord-commission-owed" placeholder="0.00" step="0.01"></div>
+              </div>
+              <div class="form-group"><label>Commission Received</label>
+                <div class="currency-wrap"><input type="number" id="df-landlord-commission-received" placeholder="0.00" step="0.01"></div>
+              </div>
+              <div class="form-group"><label>Invoice Sent Date</label><input type="date" id="df-invoice-sent-date"></div>
+              <div class="form-group"><label>Invoice Paid Date</label><input type="date" id="df-invoice-paid-date"></div>
+            </div>
           </div>
         </div>
         <div class="form-section">
@@ -3888,6 +3955,27 @@
       return n > 0 && r < n;
     }
 
+    // ── Landlord commission invoices ──
+    // "Paid" is the explicit invoicePaidDate flag (set via the deal form or the Mark Paid
+    // checkbox on the Landlord Invoices tab), not a computed owed-vs-received comparison —
+    // same convention as the checks' `delivered` flag. No due date; "past due" is measured
+    // from invoiceSentDate instead.
+    function daysSinceInvoiceSent(d) {
+      if (!d.invoiceSentDate) return null;
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const sent = new Date(d.invoiceSentDate + 'T00:00:00');
+      return Math.floor((today - sent) / 86400000);
+    }
+    function isInvoicePending(d) {
+      if (d.status === 'draft' || d.status === 'archived') return false;
+      return d.landlordCommissionRequired === 'Yes' && !!d.invoiceSentDate && !d.invoicePaidDate;
+    }
+    function isInvoicePastDue(d, days) {
+      if (!isInvoicePending(d)) return false;
+      const n = daysSinceInvoiceSent(d);
+      return n !== null && n > days;
+    }
+
     function getPaymentIssues(d) {
       const issues = [];
       const check = (label, n, r) => { if (parseFloat(n || 0) > 0 && parseFloat(r || 0) < parseFloat(n || 0)) issues.push(label); };
@@ -3961,6 +4049,7 @@
       if (p === 'agents') renderObjTable('agent');
       if (p === 'keys') renderKeysPage();
       if (p === 'checks') renderChecksPage();
+      if (p === 'invoices') renderInvoicesPage();
       if (p === 'reminders') renderRemindersPage();
       if (p === 'archived') renderArchivedTable();
       if (p === 'drafts') renderDraftsTable();
@@ -4045,6 +4134,8 @@
       if (duesoonEl) { duesoonEl.textContent = dueSoonCount; duesoonEl.className = 'stat-val' + (dueSoonCount > 0 ? ' warn' : ''); }
       if (overdueEl) { overdueEl.textContent = overdueCount; overdueEl.className = 'stat-val' + (overdueCount > 0 ? ' warn' : ''); }
       document.getElementById('stat-broker').textContent = live.filter(hasMissingBrokerFee).length;
+      document.getElementById('stat-invoicespending').textContent = live.filter(isInvoicePending).length;
+      document.getElementById('stat-invoicepastdue').textContent = live.filter(d => isInvoicePastDue(d, 15)).length;
       // Archiving or restoring a deal changes the open-check count without touching the
       // Checks page. renderStats() runs after all of those, so the badge rides along.
       updateChecksBadge();
@@ -4052,7 +4143,7 @@
 
     function toggleStatFilter(type) {
       if (activeStatFilter === type) activeStatFilter = null; else activeStatFilter = type;
-      ['active', 'duesoon', 'overdue', 'broker'].forEach(k => {
+      ['active', 'duesoon', 'overdue', 'broker', 'invoicespending', 'invoicepastdue'].forEach(k => {
         const card = document.getElementById('stat-' + k + '-card');
         if (card) card.classList.toggle('active-filter', activeStatFilter === k);
       });
@@ -4072,6 +4163,8 @@
         if (activeStatFilter === 'duesoon' && !isDueSoon(d, 15)) return false;
         if (activeStatFilter === 'overdue' && !isOverdue(d)) return false;
         if (activeStatFilter === 'broker' && !hasMissingBrokerFee(d)) return false;
+        if (activeStatFilter === 'invoicespending' && !isInvoicePending(d)) return false;
+        if (activeStatFilter === 'invoicepastdue' && !isInvoicePastDue(d, 15)) return false;
         if (q && !(d.name || '').toLowerCase().includes(q) && !(d.landlordName || '').toLowerCase().includes(q) && !(d.agentName || '').toLowerCase().includes(q)) return false;
         for (const f of activeFilters) {
           const val = f.value;
@@ -4119,6 +4212,8 @@
       else if (activeStatFilter === 'active') heading = 'Active Deals';
       else if (activeStatFilter === 'duesoon') heading = 'Deals Due Within 15 Days';
       else if (activeStatFilter === 'overdue') heading = 'Overdue Deals';
+      else if (activeStatFilter === 'invoicespending') heading = 'Invoices Pending';
+      else if (activeStatFilter === 'invoicepastdue') heading = 'Past Due Invoices (15+ Days)';
       document.getElementById('table-heading').textContent = heading + (rows.length !== liveCount ? ` (${rows.length})` : '');
       renderDealsTable(rows);
     }
@@ -4126,7 +4221,7 @@
     function clearAllFilters() {
       document.getElementById('filter-search').value = '';
       activeStatFilter = null; activeFilters = [];
-      ['active', 'duesoon', 'overdue', 'broker'].forEach(k => document.getElementById('stat-' + k + '-card')?.classList.remove('active-filter'));
+      ['active', 'duesoon', 'overdue', 'broker', 'invoicespending', 'invoicepastdue'].forEach(k => document.getElementById('stat-' + k + '-card')?.classList.remove('active-filter'));
       renderFilterRows(); renderFilterChips(); applyFilters();
     }
 
@@ -4478,6 +4573,21 @@
         <div class="detail-row"><span class="detail-key">Due</span><span class="detail-val">${formatDate(d.brokerDue)}</span></div>
         ${d.brokerNotes ? `<div style="margin-top:6px;font-size:12px;color:var(--muted);">${d.brokerNotes}</div>` : ''}
       </div>`: ''}
+      ${d.landlordCommissionRequired === 'Yes' ? (() => {
+          const daysSince = daysSinceInvoiceSent(d);
+          const pending = isInvoicePending(d);
+          let statusRow;
+          if (d.invoicePaidDate) statusRow = `<div class="detail-row"><span class="detail-key">Paid</span><span class="detail-val">${formatDate(d.invoicePaidDate)}</span></div>`;
+          else if (daysSince !== null) statusRow = `<div class="detail-row"><span class="detail-key">Since Sent</span><span class="detail-val">${daysSince} day${daysSince === 1 ? '' : 's'}</span></div>`;
+          else statusRow = `<div class="detail-row"><span class="detail-key">Invoice</span><span class="detail-val">Not sent yet</span></div>`;
+          return `<div class="detail-card" style="${pending ? 'background:#fdf0ef;border-color:#f5c6c2;' : ''}">
+        <div class="detail-card-title"><span>Landlord Commission</span>${pencil}</div>
+        <div class="detail-row"><span class="detail-key">Owed</span><span class="detail-val">${formatCur(d.landlordCommissionOwed)}</span></div>
+        <div class="detail-row"><span class="detail-key">Received</span><span class="detail-val">${formatCur(d.landlordCommissionReceived)}</span></div>
+        <div class="detail-row"><span class="detail-key">Invoice Sent</span><span class="detail-val">${formatDate(d.invoiceSentDate)}</span></div>
+        ${statusRow}
+      </div>`;
+        })() : ''}
       ${parseFloat(d.lmrNeeded || 0) > 0 ? `<div class="detail-card" style="${owes(d.lmrNeeded, d.lmrReceived)}">
         <div class="detail-card-title"><span>LMR</span>${pencil}</div>
         <div class="detail-row"><span class="detail-key">Needed</span><span class="detail-val">${formatCur(d.lmrNeeded)}</span></div>
@@ -4564,6 +4674,7 @@
         'df-commission', 'df-additional-info', 'df-appfee-needed', 'df-appfee-received', 'df-appfee-due', 'df-appfee-notes',
         'df-fmr-needed', 'df-fmr-received', 'df-fmr-due', 'df-fmr-notes', 'df-fmr-delivered',
         'df-broker-needed', 'df-broker-received', 'df-broker-due', 'df-broker-notes',
+        'df-landlord-commission-owed', 'df-landlord-commission-received', 'df-invoice-sent-date', 'df-invoice-paid-date',
         'df-lmr-needed', 'df-lmr-received', 'df-lmr-due', 'df-lmr-notes', 'df-lmr-delivered',
         'df-secdep-needed', 'df-secdep-received', 'df-secdep-due', 'df-secdep-notes', 'df-secdep-delivered',
         'df-keyfee-needed', 'df-keyfee-received', 'df-keyfee-due', 'df-keyfee-notes', 'df-keyfee-delivered',
@@ -4574,6 +4685,8 @@
       document.getElementById('clients-selected').innerHTML = '';
       document.getElementById('cosigner-section').style.display = 'none';
       document.getElementById('cosigner-summary').innerHTML = '';
+      document.getElementById('df-landlord-commission-required').checked = false;
+      document.getElementById('landlord-commission-section').style.display = 'none';
       setStage(0);
 
       if (editId) {
@@ -4583,6 +4696,10 @@
         setV('df-appfee-needed', d.appfeeNeeded); setV('df-appfee-received', d.appfeeReceived); setV('df-appfee-due', d.appfeeDue); setV('df-appfee-notes', d.appfeeNotes);
         setV('df-fmr-needed', d.fmrNeeded); setV('df-fmr-received', d.fmrReceived); setV('df-fmr-due', d.fmrDue); setV('df-fmr-notes', d.fmrNotes); setV('df-fmr-delivered', d.fmrDelivered);
         setV('df-broker-needed', d.brokerNeeded); setV('df-broker-received', d.brokerReceived); setV('df-broker-due', d.brokerDue); setV('df-broker-notes', d.brokerNotes);
+        document.getElementById('df-landlord-commission-required').checked = d.landlordCommissionRequired === 'Yes';
+        setV('df-landlord-commission-owed', d.landlordCommissionOwed); setV('df-landlord-commission-received', d.landlordCommissionReceived);
+        setV('df-invoice-sent-date', d.invoiceSentDate); setV('df-invoice-paid-date', d.invoicePaidDate);
+        handleLandlordCommissionRequired();
         setV('df-lmr-needed', d.lmrNeeded); setV('df-lmr-received', d.lmrReceived); setV('df-lmr-due', d.lmrDue); setV('df-lmr-notes', d.lmrNotes); setV('df-lmr-delivered', d.lmrDelivered);
         setV('df-secdep-needed', d.secdepNeeded); setV('df-secdep-received', d.secdepReceived); setV('df-secdep-due', d.secdepDue); setV('df-secdep-notes', d.secdepNotes); setV('df-secdep-delivered', d.secdepDelivered);
         setV('df-keyfee-needed', d.keyfeeNeeded); setV('df-keyfee-received', d.keyfeeReceived); setV('df-keyfee-due', d.keyfeeDue); setV('df-keyfee-notes', d.keyfeeNotes); setV('df-keyfee-delivered', d.keyfeeDelivered);
@@ -4676,6 +4793,9 @@
         appfeeNeeded: gv('df-appfee-needed'), appfeeReceived: gv('df-appfee-received'), appfeeDue: gv('df-appfee-due'), appfeeNotes: gv('df-appfee-notes'),
         fmrNeeded: gv('df-fmr-needed'), fmrReceived: gv('df-fmr-received'), fmrDue: gv('df-fmr-due'), fmrNotes: gv('df-fmr-notes'), fmrDelivered: gv('df-fmr-delivered'),
         brokerNeeded: gv('df-broker-needed'), brokerReceived: gv('df-broker-received'), brokerDue: gv('df-broker-due'), brokerNotes: gv('df-broker-notes'),
+        landlordCommissionRequired: document.getElementById('df-landlord-commission-required').checked ? 'Yes' : '',
+        landlordCommissionOwed: gv('df-landlord-commission-owed'), landlordCommissionReceived: gv('df-landlord-commission-received'),
+        invoiceSentDate: gv('df-invoice-sent-date'), invoicePaidDate: gv('df-invoice-paid-date'),
         lmrNeeded: gv('df-lmr-needed'), lmrReceived: gv('df-lmr-received'), lmrDue: gv('df-lmr-due'), lmrNotes: gv('df-lmr-notes'), lmrDelivered: gv('df-lmr-delivered'),
         secdepNeeded: gv('df-secdep-needed'), secdepReceived: gv('df-secdep-received'), secdepDue: gv('df-secdep-due'), secdepNotes: gv('df-secdep-notes'), secdepDelivered: gv('df-secdep-delivered'),
         keyfeeNeeded: gv('df-keyfee-needed'), keyfeeReceived: gv('df-keyfee-received'), keyfeeDue: gv('df-keyfee-due'), keyfeeNotes: gv('df-keyfee-notes'), keyfeeDelivered: gv('df-keyfee-delivered'),
@@ -4755,6 +4875,11 @@
     // ══════════════════════════════════════
     // COSIGNERS
     // ══════════════════════════════════════
+    function handleLandlordCommissionRequired() {
+      const on = document.getElementById('df-landlord-commission-required').checked;
+      document.getElementById('landlord-commission-section').style.display = on ? '' : 'none';
+    }
+
     function handleNCFNeeded() {
       const n = parseInt(document.getElementById('df-ncf-needed').value) || 0;
       document.getElementById('cosigner-section').style.display = n > 0 ? '' : 'none';
@@ -6000,6 +6125,8 @@
         // Writing checks is an office function. Agents are also RLS-limited to their own
         // deals, so their count would be a partial number presented as a total.
         document.getElementById('nav-checks').style.display = '';
+        // Financial data, same reasoning as Checks to Write above.
+        document.getElementById('nav-invoices').style.display = '';
         updateRequestsBadge();
         updateChecksBadge();
         updateRemindersBadge();
@@ -6007,6 +6134,7 @@
         // Agent: hide admin-only tabs
         document.getElementById('nav-requests').style.display = 'none';
         document.getElementById('nav-checks').style.display = 'none';
+        document.getElementById('nav-invoices').style.display = 'none';
         // Reminders stay visible for agents: db.deals is filtered to their own deals just
         // below, so the count is a true total of what they can actually see.
         updateRemindersBadge();
@@ -6811,14 +6939,14 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
     // ══════════════════════════════════════
     // HASH-BASED PAGE NAVIGATION
     // ══════════════════════════════════════
-    const VALID_PAGES = ['dashboard', 'payments', 'delivery', 'clients', 'addresses', 'landlords', 'agents', 'archived', 'drafts', 'requests', 'reminders', 'checks', 'keys'];
+    const VALID_PAGES = ['dashboard', 'payments', 'delivery', 'clients', 'addresses', 'landlords', 'agents', 'archived', 'drafts', 'requests', 'reminders', 'checks', 'keys', 'invoices'];
 
     // Pages whose nav tab applyRolePermissions() hides from agents. The hash router bypasses
     // the nav entirely, so without this check an agent reaches them just by typing or
     // bookmarking the URL — already true of 'requests' before 'checks' joined the list above.
     // Safe to call here: applyRolePermissions() runs before restoreFromHash() in startApp(),
     // so currentUser is populated by the time either router path evaluates this.
-    const ADMIN_ONLY_PAGES = ['checks', 'requests'];
+    const ADMIN_ONLY_PAGES = ['checks', 'requests', 'invoices'];
 
     function routeToPage(hash) {
       if (!VALID_PAGES.includes(hash)) return;
@@ -7739,6 +7867,67 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
       deal.lastUpdated = new Date().toISOString();
       await saveRecord('deals', deal);
       renderChecksPage();
+    }
+
+    // ══════════════════════════════════════
+    // LANDLORD INVOICES
+    // ══════════════════════════════════════
+    // Every deal with landlordCommissionRequired==='Yes', regardless of whether an invoice
+    // has been sent yet — Greg wants to see what's owed even before the first invoice goes
+    // out, not just what's already pending payment. Sort: not-yet-sent first (needs action),
+    // then sent-and-unpaid by days-since-sent descending (most overdue on top), then paid
+    // last by paid date descending.
+    function invoiceVisibleDeals() {
+      return (db.deals || []).filter(d => d.status !== 'archived' && d.landlordCommissionRequired === 'Yes');
+    }
+
+    function renderInvoicesPage() {
+      const tbody = document.getElementById('invoices-tbody');
+      if (!tbody) return;
+      const rows = invoiceVisibleDeals().slice().sort((a, b) => {
+        if (!!a.invoicePaidDate !== !!b.invoicePaidDate) return a.invoicePaidDate ? 1 : -1;
+        if (a.invoicePaidDate && b.invoicePaidDate) return b.invoicePaidDate.localeCompare(a.invoicePaidDate);
+        if (!!a.invoiceSentDate !== !!b.invoiceSentDate) return a.invoiceSentDate ? 1 : -1;
+        const da = daysSinceInvoiceSent(a) ?? -1, db_ = daysSinceInvoiceSent(b) ?? -1;
+        return db_ - da;
+      });
+      tbody.innerHTML = rows.length ? rows.map(invoiceRow).join('')
+        : `<tr class="empty-row"><td colspan="10">No deals with a landlord commission on file.</td></tr>`;
+    }
+
+    function invoiceRow(d) {
+      const daysSince = daysSinceInvoiceSent(d);
+      let sinceCell;
+      if (d.invoicePaidDate) sinceCell = `Paid ${formatDate(d.invoicePaidDate)}`;
+      else if (daysSince !== null) sinceCell = `${daysSince} day${daysSince === 1 ? '' : 's'}`;
+      else sinceCell = '—';
+      return `<tr>
+      <td style="font-size:12.5px;">${d.leaseStart ? formatDate(d.leaseStart) : '—'}</td>
+      <td style="font-weight:500;"><span onclick="openDealDetail('${d.id}')" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;">${keysEsc(d.name || 'Untitled Deal')}</span></td>
+      <td style="font-size:12.5px;">${keysEsc(d.landlordName || '—')}</td>
+      <td style="font-size:12.5px;">${keysEsc(resolveDealAddress(d))}</td>
+      <td style="font-size:12.5px;">${keysEsc(d.agentName || '—')}</td>
+      <td style="font-weight:600;">${formatCur(d.landlordCommissionOwed)}</td>
+      <td>${formatCur(d.landlordCommissionReceived)}</td>
+      <td style="font-size:12.5px;">${d.invoiceSentDate ? formatDate(d.invoiceSentDate) : '—'}</td>
+      <td style="font-size:12.5px;">${sinceCell}</td>
+      <td style="text-align:center;"><input type="checkbox" ${d.invoicePaidDate ? 'checked' : ''} onchange="toggleLandlordInvoicePaid('${d.id}',this.checked)" style="width:16px;height:16px;cursor:pointer;"></td></tr>`;
+    }
+
+    // ⚠️ Named distinctly from the unrelated `toggleInvoicePaid()` (no-arg) on the Generate
+    // Invoice print modal below — two `function` declarations with the same name at top
+    // level silently collide (the later one in source order wins), which would make this
+    // checkbox call the print modal's UI-only toggle instead of saving anything.
+    async function toggleLandlordInvoicePaid(dealId, on) {
+      const deal = (db.deals || []).find(x => x.id === dealId);
+      if (!deal) return;
+      // keysToday() is local-calendar, not toISOString() — matches the checks'
+      // deliveredDate convention so a late-evening click doesn't stamp tomorrow.
+      deal.invoicePaidDate = on ? keysToday() : '';
+      deal.lastUpdated = new Date().toISOString();
+      await saveRecord('deals', deal);
+      renderInvoicesPage();
+      renderStats();
     }
 
     function updateChecksBadge() {
