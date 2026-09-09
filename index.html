@@ -2062,7 +2062,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v9.0</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v9.1</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -2700,10 +2700,9 @@
                   <th style="width:140px;">Address</th>
                   <th style="width:100px;">Agent</th>
                   <th style="width:95px;">Commission Owed</th>
-                  <th style="width:90px;">Received</th>
                   <th style="width:85px;">Invoice Sent</th>
                   <th style="width:80px;">Since Sent</th>
-                  <th style="width:230px;">Notes</th>
+                  <th style="width:340px;">Notes</th>
                   <th style="width:55px;">Paid?</th>
                 </tr>
               </thead>
@@ -7898,7 +7897,7 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
         return db_ - da;
       });
       if (!rows.length) {
-        tbody.innerHTML = `<tr class="empty-row"><td colspan="11">No deals with a landlord commission on file.</td></tr>`;
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="10">No deals with a landlord commission on file.</td></tr>`;
         return;
       }
       let html = '';
@@ -7921,7 +7920,7 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
       return `<tr style="background:var(--surface2);font-weight:600;">
       <td colspan="5" style="text-align:right;padding-right:12px;">${keysEsc(landlordName)} — Total Commission Owed:</td>
       <td>${formatCur(total)}</td>
-      <td colspan="5"></td></tr>`;
+      <td colspan="4"></td></tr>`;
     }
 
     function invoiceRow(d) {
@@ -7935,7 +7934,6 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
       <td style="font-size:12.5px;">${keysEsc(resolveDealAddress(d))}</td>
       <td style="font-size:12.5px;">${keysEsc(d.agentName || '—')}</td>
       <td style="font-weight:600;">${formatCur(d.landlordCommissionOwed)}</td>
-      <td>${formatCur(d.landlordCommissionReceived)}</td>
       <td style="font-size:12.5px;">${d.invoiceSentDate ? formatDate(d.invoiceSentDate) : '—'}</td>
       <td style="font-size:12.5px;">${sinceCell}</td>
       <td><textarea onchange="saveInvoiceField('${d.id}','invoiceNotes',this.value)" placeholder="Notes…" style="width:100%;height:52px;font-size:12.5px;padding:6px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-body);resize:vertical;box-sizing:border-box;">${keysEsc(d.invoiceNotes || '')}</textarea></td>
