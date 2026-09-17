@@ -2062,7 +2062,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v9.1</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v9.2</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -2073,10 +2073,11 @@
         <button class="nav-tab" id="nav-checks" data-page="checks" onclick="showPage('checks',this)"
           style="display:none;position:relative;">Checks to Write<span id="checks-badge"
             style="display:none;position:absolute;top:-4px;right:-2px;background:#c0392b;color:#fff;border-radius:10px;padding:1px 5px;font-size:10px;font-weight:600;line-height:1.4;"></span></button>
+        <button class="nav-tab" id="nav-invoices" data-page="invoices" onclick="showPage('invoices',this)"
+          style="display:none;">Landlord Invoices</button>
         <button class="nav-tab" id="nav-reminders" data-page="reminders" onclick="showPage('reminders',this)"
           style="position:relative;">Reminders<span id="reminders-badge"
             style="display:none;position:absolute;top:-4px;right:-2px;background:#c0392b;color:#fff;border-radius:10px;padding:1px 5px;font-size:10px;font-weight:600;line-height:1.4;"></span></button>
-        <button class="nav-tab" data-page="keys" onclick="showPage('keys',this)">Key Instructions</button>
         <!-- HAMBURGER -->
         <div style="position:relative;">
           <button id="hamburger-btn" onclick="toggleHamburger()"
@@ -2093,6 +2094,16 @@
           </button>
           <div id="hamburger-menu"
             style="display:none;position:absolute;top:calc(100% + 8px);right:0;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);min-width:180px;z-index:200;padding:6px 0;animation:modalIn 0.15s ease;">
+            <button class="hamburger-item" data-page="deals"
+              onclick="showPage('deals',document.querySelector('[data-page=deals]'));toggleHamburger()">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M20 7h-9" />
+                <path d="M14 17H5" />
+                <circle cx="17" cy="17" r="3" />
+                <circle cx="7" cy="7" r="3" />
+              </svg>
+              Deals
+            </button>
             <button class="hamburger-item" data-page="clients"
               onclick="showPage('clients',document.querySelector('[data-page=clients]'));toggleHamburger()">
               <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -2129,6 +2140,13 @@
               </svg>
               Agents
             </button>
+            <button class="hamburger-item" data-page="keys"
+              onclick="showPage('keys',document.querySelector('[data-page=keys]'));toggleHamburger()">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+              </svg>
+              Key Instructions
+            </button>
             <button class="hamburger-item" data-page="archived"
               onclick="showPage('archived',document.querySelector('[data-page=archived]'));toggleHamburger()">
               <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -2157,17 +2175,6 @@
               Edit Requests
               <span id="requests-badge"
                 style="background:#c0392b;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:auto;display:none;"></span>
-            </button>
-            <button class="hamburger-item" id="nav-invoices" data-page="invoices"
-              onclick="showPage('invoices',document.querySelector('[data-page=invoices]'));toggleHamburger()"
-              style="display:none;">
-              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <path d="M14 2v6h6" />
-                <line x1="8" y1="13" x2="16" y2="13" />
-                <line x1="8" y1="17" x2="12" y2="17" />
-              </svg>
-              Landlord Invoices
             </button>
           </div>
         </div>
@@ -2253,7 +2260,12 @@
             <div class="stat-card clickable" id="stat-active-card" onclick="toggleStatFilter('active')">
               <div class="stat-label">Active Deals</div>
               <div class="stat-val" id="stat-active">0</div>
-              <div class="stat-sub">saved &amp; approved</div>
+              <div class="stat-sub">upcoming move-ins</div>
+            </div>
+            <div class="stat-card clickable" id="stat-drafts-card" onclick="toggleStatFilter('drafts')">
+              <div class="stat-label">Drafts</div>
+              <div class="stat-val" id="stat-drafts">0</div>
+              <div class="stat-sub">incomplete &mdash; opens Drafts</div>
             </div>
             <div class="stat-card clickable" id="stat-duesoon-card" onclick="toggleStatFilter('duesoon')">
               <div class="stat-label">Due Soon</div>
@@ -2791,6 +2803,66 @@
                 </tr>
               </thead>
               <tbody id="agents-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="page" id="page-deals">
+        <div class="page-hdr">
+          <div>
+            <div class="page-title">Deals</div>
+            <div class="page-subtitle">Every deal on file &mdash; upcoming, past, and draft</div>
+          </div>
+          <div class="search-wrap">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.35-4.35" />
+            </svg>
+            <input class="search-input" id="alldeals-search" placeholder="Search deals..."
+              oninput="renderDealsPage()">
+          </div>
+        </div>
+        <div class="card">
+          <div style="overflow-x:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Lease Start</th>
+                  <th>Deal Name</th>
+                  <th>Landlord</th>
+                  <th>Agent</th>
+                  <th>Status</th>
+                  <th>Stage</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="alldeals-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card" style="margin-top:20px;" id="alldeals-archived-card">
+          <div class="card-header" style="cursor:pointer;user-select:none;" onclick="toggleArchivedSection()">
+            <span class="card-title">
+              <span id="alldeals-archived-caret"
+                style="display:inline-block;transition:transform 0.15s;margin-right:6px;">&#9656;</span>
+              Archived <span id="alldeals-archived-count" style="color:var(--muted);font-weight:400;"></span>
+            </span>
+            <span style="color:var(--muted);font-size:12.5px;">Cancelled or fell through</span>
+          </div>
+          <div id="alldeals-archived-body" style="display:none;overflow-x:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Lease Start</th>
+                  <th>Deal Name</th>
+                  <th>Landlord</th>
+                  <th>Agent</th>
+                  <th>Archive Reason</th>
+                  <th>Archived On</th>
+                </tr>
+              </thead>
+              <tbody id="alldeals-archived-tbody"></tbody>
             </table>
           </div>
         </div>
@@ -4053,6 +4125,7 @@
       if (p === 'checks') renderChecksPage();
       if (p === 'invoices') renderInvoicesPage();
       if (p === 'reminders') renderRemindersPage();
+      if (p === 'deals') renderDealsPage();
       if (p === 'archived') renderArchivedTable();
       if (p === 'drafts') renderDraftsTable();
       if (p === 'requests') renderRequestsTable();
@@ -4126,9 +4199,32 @@
       });
     }
 
+    // ══════════════════════════════════════
+    // UPCOMING (v9.2)
+    // ══════════════════════════════════════
+    // ⚠️ DERIVED, never stored. `status` stays a three-value DB field
+    // ('active'|'draft'|'archived') and still drives Payments & Paperwork, Delivery Needed,
+    // Checks to Write and the agent Edit-Request routing in editDeal(). Redefining `status`
+    // itself would drop a deal that owes us money off the very tab we chase it on, and would
+    // hand agents a direct write on any past-start deal. This is display-only.
+    function isUpcoming(d) {
+      // A blank lease start counts as upcoming so legacy rows land on the dashboard rather
+      // than disappearing into the Deals tab (Greg, 2026-09-17). New active deals cannot be
+      // saved without one — see saveDeal() / activateDeal().
+      if (!d.leaseStart) return true;
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const start = new Date(d.leaseStart + 'T00:00:00');
+      return start >= today; // a lease starting TODAY is still active
+    }
+
     function renderStats() {
-      const live = db.deals.filter(d => d.status !== 'archived');
-      document.getElementById('stat-active').textContent = live.filter(d => d.status === 'active').length;
+      // ⚠️ `live` now excludes drafts as well as archived. The dashboard list no longer shows
+      // drafts (v9.2), so a money tile counting them would report a number that clicking it
+      // cannot display. Drafts get their own tile, which routes to the Drafts tab instead.
+      const live = db.deals.filter(d => d.status === 'active');
+      document.getElementById('stat-active').textContent = live.filter(isUpcoming).length;
+      const draftsEl = document.getElementById('stat-drafts');
+      if (draftsEl) draftsEl.textContent = db.deals.filter(d => d.status === 'draft').length;
       const dueSoonCount = live.filter(d => isDueSoon(d, 15)).length;
       const overdueCount = live.filter(d => isOverdue(d)).length;
       const duesoonEl = document.getElementById('stat-duesoon');
@@ -4144,6 +4240,9 @@
     }
 
     function toggleStatFilter(type) {
+      // The Drafts tile is a shortcut, not a filter — drafts are excluded from the dashboard
+      // list entirely (v9.2), so filtering to them here would always render an empty table.
+      if (type === 'drafts') { showPage('drafts', document.querySelector('[data-page=drafts]')); return; }
       if (activeStatFilter === type) activeStatFilter = null; else activeStatFilter = type;
       ['active', 'duesoon', 'overdue', 'broker', 'invoicespending', 'invoicepastdue'].forEach(k => {
         const card = document.getElementById('stat-' + k + '-card');
@@ -4159,9 +4258,17 @@
 
     function applyFilters() {
       const q = (document.getElementById('filter-search')?.value || '').toLowerCase();
+      // v9.2 — the dashboard answers "what is coming up", so it defaults to upcoming actives.
+      // ⚠️ Any DELIBERATE narrowing lifts the date restriction: a money tile, a search term or
+      // a filter-panel filter. Without that, Overdue could count a deal that started last week
+      // and then show an empty table when you click it, and searching a past tenant by name
+      // would return nothing. The Deals tab is the unfiltered record.
+      const narrowing = (activeStatFilter && activeStatFilter !== 'active') || !!q || activeFilters.length > 0;
       let rows = db.deals.filter(d => {
         if (d.status === 'archived') return false;
-        if (activeStatFilter === 'active' && d.status !== 'active') return false;
+        if (d.status === 'draft') return false; // drafts live on the Drafts tab now
+        if (!narrowing && !isUpcoming(d)) return false;
+        if (activeStatFilter === 'active' && !isUpcoming(d)) return false;
         if (activeStatFilter === 'duesoon' && !isDueSoon(d, 15)) return false;
         if (activeStatFilter === 'overdue' && !isOverdue(d)) return false;
         if (activeStatFilter === 'broker' && !hasMissingBrokerFee(d)) return false;
@@ -4209,7 +4316,9 @@
         });
       }
       const liveCount = db.deals.filter(d => d.status !== 'archived').length;
-      let heading = 'All Deals';
+      // The dashboard is upcoming-only unless something lifted that (see `narrowing` above),
+      // so the default heading can no longer claim "All Deals" — that is the Deals tab now.
+      let heading = narrowing ? 'All Deals' : 'Upcoming Deals';
       if (activeStatFilter === 'broker') heading = 'Deals Missing Broker Fee';
       else if (activeStatFilter === 'active') heading = 'Active Deals';
       else if (activeStatFilter === 'duesoon') heading = 'Deals Due Within 15 Days';
@@ -4741,7 +4850,10 @@
     function autoLeaseEnd() {
       const s = document.getElementById('df-lease-start').value; if (!s) return;
       const d = new Date(s); d.setDate(d.getDate() + 365);
-      const y = d.getFullYear(); if (y >= 2026 && y <= 2027) document.getElementById('df-lease-end').value = d.toISOString().split('T')[0];
+      // ⚠️ This used to write the end date only when it landed in 2026 or 2027, so any lease
+      // starting 2027-01-02 or later silently got no end date at all. Window removed 2026-09-17.
+      // Still only a suggestion — the field stays editable and nothing downstream requires it.
+      if (!isNaN(d.getTime())) document.getElementById('df-lease-end').value = d.toISOString().split('T')[0];
     }
 
     // ── STAGE ──
@@ -4775,6 +4887,13 @@
     async function saveDeal(status) {
       const name = document.getElementById('df-name').value.trim();
       if (!name) { alert('Please enter a Deal Name.'); return; }
+      // v9.2 — an active deal must carry a lease start; the dashboard is built on it.
+      // ⚠️ Drafts are deliberately exempt. A draft is incomplete by definition, and blocking
+      // it would strand anyone part-way through entry. activateDeal() re-checks on the way out.
+      if (status === 'active' && !gv('df-lease-start')) {
+        alert('Please enter a Lease Start Date. It is required for an active deal — save as a draft if you do not have it yet.');
+        return;
+      }
       const stage = parseInt(document.getElementById('df-stage').value) || 0;
       const deal = {
         id: editingDealId || ('d_' + Date.now()), status,
@@ -6731,6 +6850,99 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
       if (i >= 0) { db.deals[i].status = 'active'; delete db.deals[i].archiveReason; delete db.deals[i].archivedOn; }
       if (i >= 0) await saveRecord('deals', db.deals[i]); renderArchivedTable(); renderStats();
     }
+    // ══════════════════════════════════════
+    // DEALS TAB (v9.2)
+    // ══════════════════════════════════════
+    // The unfiltered record: every deal, upcoming or past, active or draft, with archived
+    // deals in their own collapsed section underneath. Archived is kept visually separate
+    // because it means the deal DIED (manual act, carries a reason), which is the opposite
+    // outcome from a past lease start, which means the deal COMPLETED.
+    let archivedSectionOpen = false;
+
+    function toggleArchivedSection() {
+      archivedSectionOpen = !archivedSectionOpen;
+      const body = document.getElementById('alldeals-archived-body');
+      const caret = document.getElementById('alldeals-archived-caret');
+      if (body) body.style.display = archivedSectionOpen ? '' : 'none';
+      if (caret) caret.style.transform = archivedSectionOpen ? 'rotate(90deg)' : '';
+    }
+
+    function dealMatchesSearch(d, q) {
+      if (!q) return true;
+      return (d.name || '').toLowerCase().includes(q)
+        || (d.landlordName || '').toLowerCase().includes(q)
+        || (d.agentName || '').toLowerCase().includes(q)
+        || (d.addressDisplay || '').toLowerCase().includes(q);
+    }
+
+    // Newest lease start first. A blank date sorts LAST in both directions rather than
+    // clumping at the top as an empty string would — same convention as the checks sort.
+    function byLeaseStartDesc(a, b) {
+      if (!a.leaseStart && !b.leaseStart) return 0;
+      if (!a.leaseStart) return 1;
+      if (!b.leaseStart) return -1;
+      return b.leaseStart.localeCompare(a.leaseStart);
+    }
+
+    function renderDealsPage() {
+      const q = (document.getElementById('alldeals-search')?.value || '').toLowerCase();
+      const tbody = document.getElementById('alldeals-tbody');
+      if (!tbody) return;
+
+      const rows = db.deals
+        .filter(d => d.status !== 'archived')
+        .filter(d => dealMatchesSearch(d, q))
+        .sort(byLeaseStartDesc);
+
+      if (!rows.length) {
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="7">${q ? 'No deals match that search.' : 'No deals yet.'}</td></tr>`;
+      } else {
+        tbody.innerHTML = rows.map(d => {
+          const stage = parseInt(d.stage) || 0;
+          const upcoming = isUpcoming(d);
+          const statusBadge = d.status === 'draft'
+            ? `<span class="badge badge-draft">Draft</span>`
+            : upcoming
+              ? `<span class="badge badge-active">Active</span>`
+              : `<span class="badge" style="background:var(--border);color:var(--muted);">Past</span>`;
+          return `<tr onclick="openDealDetail('${d.id}')" style="cursor:pointer;">
+      <td>${formatDate(d.leaseStart)}</td>
+      <td style="font-weight:500;">${d.name || '—'}</td>
+      <td>${d.landlordName || '—'}</td>
+      <td>${d.agentName || '—'}</td>
+      <td>${statusBadge}</td>
+      <td><span class="badge badge-stage-${stage}">${STAGE_NAMES[stage]}</span></td>
+      <td onclick="event.stopPropagation()" style="white-space:nowrap;">
+        <button class="btn btn-ghost btn-xs" onclick="editDeal('${d.id}')">Edit</button>
+      </td>
+    </tr>`;
+        }).join('');
+      }
+
+      // ── Archived section ──
+      const arch = db.deals.filter(d => d.status === 'archived')
+        .filter(d => dealMatchesSearch(d, q))
+        .sort(byLeaseStartDesc);
+      const countEl = document.getElementById('alldeals-archived-count');
+      if (countEl) countEl.textContent = `(${arch.length})`;
+      const abody = document.getElementById('alldeals-archived-tbody');
+      if (abody) {
+        abody.innerHTML = arch.length
+          ? arch.map(d => {
+            const dt = d.archivedOn ? new Date(d.archivedOn).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+            return `<tr onclick="openDealDetail('${d.id}')" style="cursor:pointer;">
+      <td>${formatDate(d.leaseStart)}</td>
+      <td style="font-weight:500;">${d.name || '—'}</td>
+      <td>${d.landlordName || '—'}</td>
+      <td>${d.agentName || '—'}</td>
+      <td style="color:var(--muted);font-size:12.5px;max-width:200px;">${d.archiveReason || '—'}</td>
+      <td style="color:var(--muted);font-size:12.5px;">${dt}</td>
+    </tr>`;
+          }).join('')
+          : `<tr class="empty-row"><td colspan="6">${q ? 'No archived deals match that search.' : 'No archived deals.'}</td></tr>`;
+      }
+    }
+
     function renderArchivedTable() {
       const tbody = document.getElementById('archived-tbody');
       if (!tbody) return;
@@ -6935,6 +7147,12 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
 
     async function activateDeal(id) {
       const i = db.deals.findIndex(d => d.id === id);
+      // ⚠️ The other door into 'active'. Without this, Activate bypasses saveDeal()'s lease
+      // start check entirely and lands an active deal on the dashboard with no date.
+      if (i >= 0 && !db.deals[i].leaseStart) {
+        alert('This draft has no Lease Start Date. Open it, add one, then activate.');
+        return;
+      }
       if (i >= 0) db.deals[i].status = 'active';
       if (i >= 0) await saveRecord('deals', db.deals[i]); renderDraftsTable(); renderStats();
     }
@@ -6942,7 +7160,7 @@ Example (multiple back-to-back blocks): "Tenant: John Doe / Cosigner: Jane Doe /
     // ══════════════════════════════════════
     // HASH-BASED PAGE NAVIGATION
     // ══════════════════════════════════════
-    const VALID_PAGES = ['dashboard', 'payments', 'delivery', 'clients', 'addresses', 'landlords', 'agents', 'archived', 'drafts', 'requests', 'reminders', 'checks', 'keys', 'invoices'];
+    const VALID_PAGES = ['dashboard', 'deals', 'payments', 'delivery', 'clients', 'addresses', 'landlords', 'agents', 'archived', 'drafts', 'requests', 'reminders', 'checks', 'keys', 'invoices'];
 
     // Pages whose nav tab applyRolePermissions() hides from agents. The hash router bypasses
     // the nav entirely, so without this check an agent reaches them just by typing or
