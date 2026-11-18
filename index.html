@@ -2062,7 +2062,7 @@
   <div id="app" style="display:none;">
     <header id="header">
       <div class="logo">Approved<span>Deals</span> <span
-          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v9.2</span>
+          style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.5);font-family:var(--font-body);letter-spacing:0.5px;">v9.3</span>
       </div>
       <nav class="header-nav">
         <button class="nav-tab active" data-page="dashboard" onclick="showPage('dashboard',this)">Dashboard</button>
@@ -5566,7 +5566,7 @@
           : `<button onclick="triggerPaymentImageUpload(${r.id})" title="Attach photo" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:36px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;cursor:pointer;color:var(--muted);padding:0;" onmouseover="this.style.borderColor='#000';this.style.color='#000'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>`;
         return `<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 96px 36px;gap:8px;margin-bottom:8px;align-items:center;">
       <select onchange="updatePaymentRow(${r.id},'client',this.value)" style="padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;">${clientSelectOpts}</select>
-      <select onchange="updatePaymentRow(${r.id},'type',this.value)" style="padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;"><option value="">Select type</option>${typeKeys.map(t => `<option value="${t}"${r.type === t ? ' selected' : ''}>${t}</option>`).join('')}</select>
+      <select onchange="setPaymentRowType(${r.id},this.value)" style="padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;"><option value="">Select type</option>${typeKeys.map(t => `<option value="${t}"${r.type === t ? ' selected' : ''}>${t}</option>`).join('')}</select>
       <div style="position:relative;"><span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;pointer-events:none;">$</span>
         <input type="number" step="0.01" placeholder="0.00" value="${r.amount || ''}" oninput="updatePaymentRow(${r.id},'amount',this.value)" style="padding:9px 12px 9px 24px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;"></div>
       <input type="text" placeholder="Notes (optional)" value="${r.notes || ''}" oninput="updatePaymentRow(${r.id},'notes',this.value)" style="padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;font-family:var(--font-body);font-size:13px;outline:none;width:100%;">
@@ -5577,6 +5577,21 @@
     }
     function updatePaymentRow(id, field, val) {
       const r = paymentRows.find(r => r.id === id); if (r) r[field] = val;
+    }
+    // v9.3 — picking a type fills an empty Amount with the balance still owed on it,
+    // less what other rows of the same type in this modal already cover. Edit mode is untouched.
+    function setPaymentRowType(id, type) {
+      const r = paymentRows.find(r => r.id === id); if (!r) return;
+      r.type = type;
+      const deal = db.deals.find(d => d.id === paymentDealId);
+      if (!editingPaymentEntry && deal && type && !(String(r.amount || '').trim())) {
+        const otherRows = paymentRows.reduce((sum, o) => {
+          const n = parseFloat(o.amount);
+          return o.id !== id && o.type === type && isFinite(n) ? sum + n : sum;
+        }, 0);
+        const left = Math.round((receiptRemaining(deal, type) - otherRows) * 100) / 100;
+        if (left > 0) { r.amount = String(left); renderPaymentRows(); }
+      }
     }
 
     // ── PAYMENT IMAGE UPLOAD ──
